@@ -69,9 +69,9 @@ reads about -1000 HU.
 runs entirely against datasets synthesised in memory, so a clean clone passes
 `dotnet test` with no downloads.
 
-For the acceptance check you need one real study. See **[docs/data-setup.md](docs/data-setup.md)**
-— it names the collection (LIDC-IDRI on The Cancer Imaging Archive), the retrieval
-procedure, and the table recording which series were actually used.
+Running the viewer needs a real study. **[docs/data-setup.md](docs/data-setup.md)** names
+the two LIDC-IDRI series this project was verified against, by SeriesInstanceUID, and
+gives the single `curl` that retrieves each one from the NBIA API.
 
 Public collections are de-identified by their publishers. No other patient data goes
 near this project, ever.
@@ -151,11 +151,17 @@ Stated plainly, because a vague limitations section is worse than none.
 - **Compressed transfer syntaxes beyond RLE are not decoded.** fo-dicom handles
   uncompressed and RLE natively; JPEG and JPEG-2000 would need `fo-dicom.Codecs`, which
   is deliberately not referenced until a real series needs it.
-- **The performance requirement (400 slices in under 15 seconds) is unverified.** It is
-  not measurable without real data and no test has been fabricated for it. It is marked
-  `Blocked` in the traceability matrix rather than assumed.
-- **The peak-memory bound holds by construction, not by measurement.** Slices decode
-  directly into the final array with nothing copied, but it has not been profiled.
+- **Peak memory sits at about 2x the volume on a large series, which is the limit rather
+  than comfortably inside it.** Above a 77.7 MB runtime baseline the working set is 1.01x
+  the volume at 66.5 MB but 1.8x to 2.0x at 228 MB. The 1.01x figure shows there is no
+  second copy of the volume; the spread at the top end is transient per-slice pixel
+  buffers outrunning collection. Reusing one decode buffer would fix it and has not been
+  done.
+- **`PixelPaddingValue` (0028,0120) is not read.** GE writes -2048 outside the
+  reconstruction circle, so the volume's minimum is a padding value rather than air. It
+  clips to black under any window, but an ROI covering the corners of the field of view
+  would average a number that was never a measurement. This matters for Phase 2, not
+  for viewing.
 - **Reslicing is axis-aligned so far.** The renderer takes an arbitrary plane and the
   geometry for a rotated one is already in place, but nothing rotates it yet: oblique
   reslicing by dragging a crosshair arm (FR-307) is Iteration 4.

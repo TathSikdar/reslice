@@ -48,12 +48,39 @@ Rejected (GantryTilt): The series was acquired with about 12 degrees of gantry t
 
 ## Which series were actually used
 
-Fill this in once a real study has been loaded, so the acceptance check is reproducible.
-It is deliberately empty rather than invented.
-
-| Collection | Patient ID | StudyInstanceUID | SeriesInstanceUID | Slices | Spacing (mm) | Notes |
+| Collection | Patient ID | SeriesInstanceUID | Slices | Spacing (mm) | Scanner | Used for |
 |---|---|---|---|---|---|---|
-| _(not yet run against real data)_ | | | | | | |
+| LIDC-IDRI | LIDC-IDRI-0001 | `1.3.6.1.4.1.14519.5.2.1.6279.6001.179049373636438705059720603192` | 133 | 0.70 x 0.70 x 2.50 | GE LightSpeed Plus | Everyday viewing. Anisotropic, so it is the one that exercises FR-208. |
+| LIDC-IDRI | LIDC-IDRI-0599 | `1.3.6.1.4.1.14519.5.2.1.6279.6001.139444426690868429919252698606` | 456 | 0.56 x 0.56 x 0.70 | Siemens Sensation 16 | FR-109 and NFR-102. Over 400 slices, near-isotropic, 228 MB. |
+
+Both are `Creative Commons Attribution 3.0 Unported`. Retrieved directly from the NBIA
+REST API rather than through the Data Retriever, which is a single request per series:
+
+```
+curl "https://services.cancerimagingarchive.net/nbia-api/services/v1/getImage?SeriesInstanceUID=<uid>" -o series.zip
+```
+
+The zip contains one `.dcm` per slice plus a `LICENSE` file. Unzip the whole thing into
+`data/<name>/` and leave the licence where it is — the loader reports it as
+`Skipped 1 file(s): not a DICOM file`, which is the DI-3 tolerance doing its job.
+
+## What real data showed that synthetic data could not
+
+- **Padding is not air.** LIDC-IDRI-0001 has a Hounsfield minimum of **-2048**, not -1000.
+  GE writes -2048 outside the reconstruction circle, so the darkest thing in the volume is
+  a padding value rather than air. Air inside the circle reads about -1024. Nothing is
+  broken by this - both clip to black under any sensible window - but a region of interest
+  that includes the corners of the field of view would be averaging a number that was
+  never a measurement. `PixelPaddingValue` (0028,0120) is not read yet.
+- **SeriesDescription is often absent.** LIDC-IDRI-0001 has none at all and the probe
+  prints `(none)`. This is DI-3 in the wild, not a parse failure.
+- **The window comes from the series, not from the presets.** Both series carry their own
+  WindowWidth/WindowCenter - W1600/L-600 and W1500/L-500 - and neither is one of the five
+  FR-305 presets, so the preset dropdown is correctly blank on load.
+- **Spacing that differs on every axis is normal.** 0.70 x 0.70 x 2.50 mm is a 3.6:1
+  anisotropy. On the 2.50 mm series the coronal reslice interpolates about 3.6 rows for
+  every row of real data, which is what FR-208 is for and what a synthetic isotropic
+  phantom can never demonstrate.
 
 ## Compressed transfer syntaxes
 
