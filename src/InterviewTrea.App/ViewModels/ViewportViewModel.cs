@@ -18,14 +18,7 @@ public sealed partial class ViewportViewModel : ObservableObject
         Orientation = orientation;
         IsSlab = isSlab;
 
-        (Vector3D row, Vector3D column) = ReslicePlane.DisplayAxes(orientation);
-
-        // FR-204. The marker on an edge names the anatomical direction you would travel
-        // by walking out through it, so the left edge is the negative row direction.
-        LeftMarker = AnatomicalDirection.Of(row.Negate());
-        RightMarker = AnatomicalDirection.Of(row);
-        TopMarker = AnatomicalDirection.Of(column.Negate());
-        BottomMarker = AnatomicalDirection.Of(column);
+        SetMarkers(ReslicePlane.DisplayAxes(orientation));
 
         // A crosshair line is the plane it represents, not a feature of the plane it is
         // drawn on: it is where another plane cuts through this one, and it is coloured for
@@ -55,13 +48,42 @@ public sealed partial class ViewportViewModel : ObservableObject
     /// <summary>Whether this pane projects a slab (FR-207) rather than a single plane.</summary>
     public bool IsSlab { get; }
 
-    public string LeftMarker { get; }
+    // FR-204. A marker names the anatomical direction you would travel by walking out
+    // through that edge, so the left edge is the negative row direction. They are not
+    // fixed by the pane's orientation: an FR-307 rotation turns the axes under them, and a
+    // marker left at its starting letter would go on claiming a direction the image no
+    // longer faces - the exact wrong-side error the markers exist to prevent.
+    [ObservableProperty]
+    private string leftMarker = string.Empty;
 
-    public string RightMarker { get; }
+    [ObservableProperty]
+    private string rightMarker = string.Empty;
 
-    public string TopMarker { get; }
+    [ObservableProperty]
+    private string topMarker = string.Empty;
 
-    public string BottomMarker { get; }
+    [ObservableProperty]
+    private string bottomMarker = string.Empty;
+
+    /// <summary>
+    /// Re-letters the four edges for the axes the pane currently has.
+    /// </summary>
+    /// <remarks>
+    /// A single letter can only name the axis an oblique direction leans towards, so the
+    /// letter flips as a rotation passes 45 degrees rather than sliding. That is the
+    /// documented limit of <see cref="AnatomicalDirection"/> and it is still far better
+    /// than a letter that stays put: at worst this is off by less than 45 degrees, where a
+    /// frozen marker can be off by 180 and read as a mirrored image.
+    /// </remarks>
+    private void SetMarkers((Vector3D Row, Vector3D Column) axes)
+    {
+        (Vector3D row, Vector3D column) = axes;
+
+        LeftMarker = AnatomicalDirection.Of(row.Negate());
+        RightMarker = AnatomicalDirection.Of(row);
+        TopMarker = AnatomicalDirection.Of(column.Negate());
+        BottomMarker = AnatomicalDirection.Of(column);
+    }
 
     public string VerticalLineBrushKey { get; }
 
@@ -102,6 +124,7 @@ public sealed partial class ViewportViewModel : ObservableObject
         // orientation names. The orientation stays as the pane's identity - which of the
         // three it is, what colour it wears - and stops being a claim about its geometry.
         Plane = ReslicePlane.Through(volume, axes, crosshair, pixelSizeMillimetres);
+        SetMarkers(axes);
 
         ModeLabel = IsSlab
             ? string.Create(CultureInfo.InvariantCulture, $"{ModeName(slabMode)} {slabThicknessMillimetres:0.#} mm")
