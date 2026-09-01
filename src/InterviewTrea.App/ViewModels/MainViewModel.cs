@@ -78,6 +78,15 @@ public sealed partial class MainViewModel : ObservableObject
 
     public string WindowLabel => $"W {Window.Width:0}  L {Window.Center:0}";
 
+    /// <summary>Moves by whole slices and stops at the ends of the stack (FR-301).</summary>
+    public void ScrollSlices(int delta)
+    {
+        if (Volume is Volume loaded)
+        {
+            SliceIndex = Math.Clamp(SliceIndex + delta, 0, loaded.DimZ - 1);
+        }
+    }
+
     public async Task LoadAsync(string directory)
     {
         IsLoading = true;

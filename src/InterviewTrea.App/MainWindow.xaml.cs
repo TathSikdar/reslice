@@ -1,7 +1,9 @@
 using System;
 using System.ComponentModel;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using InterviewTrea.App.ViewModels;
@@ -34,6 +36,9 @@ public partial class MainWindow : Window
 
         InitializeComponent();
     }
+
+    /// <summary>Loads a folder without going through the dialog (see App.OnStartup).</summary>
+    public Task LoadAsync(string directory) => viewModel.LoadAsync(directory);
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
@@ -82,6 +87,10 @@ public partial class MainWindow : Window
 
         pixels = new byte[volume.DimX * volume.DimY];
         SliceImage.Source = bitmap;
+
+        // A new series starts at native fit. Carrying the previous study's zoom over is
+        // disorienting and, on a differently sized volume, can leave the image off-screen.
+        ViewTransform.Matrix = Matrix.Identity;
     }
 
     private void Render()
@@ -121,6 +130,94 @@ public partial class MainWindow : Window
         if (dialog.ShowDialog(this) == true)
         {
             await viewModel.LoadAsync(dialog.FolderName).ConfigureAwait(true);
+        }
+    }
+
+    // Drag sensitivity, in Hounsfield units per pixel of mouse travel. These are
+    // calibration knobs, not derived constants: what feels right depends on the display
+    // size and the pointer settings, and the only way to set them is to drag on a real
+    // chest study. Width moves faster than level because its useful range is wider - a
+    // lung window is 1500 wide and a brain window is 80.
+    private const double WidthPerPixel = 4.0;
+    private const double CenterPerPixel = 2.0;
+
+    private const double ZoomPerNotch = 1.15;
+
+    private Point lastMousePosition;
+
+    /// <summary>FR-301 scroll, or FR-303 zoom about the cursor when Ctrl is held.</summary>
+    private void OnViewportMouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        int notches = e.Delta / Mouse.MouseWheelDeltaForOneLine;
+
+        if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
+        {
+            double factor = Math.Pow(ZoomPerNotch, notches);
+            Point cursor = e.GetPosition(Viewport);
+
+            // ScaleAt post-multiplies about a point in the already-transformed space, which
+            // is the screen. That is what keeps the anatomy under the cursor from sliding
+            // away as the image grows - scaling about the image's own centre would move it.
+            Matrix matrix = ViewTransform.Matrix;
+            matrix.ScaleAt(factor, factor, cursor.X, cursor.Y);
+            ViewTransform.Matrix = matrix;
+        }
+        else
+        {
+            viewModel.ScrollSlices(notches);
+        }
+
+        e.Handled = true;
+    }
+
+    private void OnViewportMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ChangedButton is MouseButton.Right or MouseButton.Middle)
+        {
+            lastMousePosition = e.GetPosition(Viewport);
+            Viewport.CaptureMouse();
+            e.Handled = true;
+        }
+    }
+
+    private void OnViewportMouseMove(object sender, MouseEventArgs e)
+    {
+        if (!Viewport.IsMouseCaptured)
+        {
+            return;
+        }
+
+        Point current = e.GetPosition(Viewport);
+        Vector delta = current - lastMousePosition;
+        lastMousePosition = current;
+
+        if (e.RightButton == MouseButtonState.Pressed)
+        {
+            // FR-302: horizontal is width, vertical is level. Screen y grows downward, so
+            // the sign is flipped - dragging up must brighten, which is what every
+            // workstation does and what a radiologist's hand already expects.
+            viewModel.Window = viewModel.Window.AdjustedBy(
+                delta.X * WidthPerPixel,
+                -delta.Y * CenterPerPixel);
+
+            // The dropdown would otherwise keep naming a preset that is no longer on
+            // screen. Clearing it is more honest than leaving a stale label.
+            PresetSelector.SelectedItem = null;
+        }
+        else if (e.MiddleButton == MouseButtonState.Pressed)
+        {
+            Matrix matrix = ViewTransform.Matrix;
+            matrix.Translate(delta.X, delta.Y);
+            ViewTransform.Matrix = matrix;
+        }
+    }
+
+    private void OnViewportMouseUp(object sender, MouseButtonEventArgs e)
+    {
+        if (Viewport.IsMouseCaptured)
+        {
+            Viewport.ReleaseMouseCapture();
+            e.Handled = true;
         }
     }
 

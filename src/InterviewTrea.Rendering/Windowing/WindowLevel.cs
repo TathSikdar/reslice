@@ -33,6 +33,17 @@ public readonly record struct WindowLevel(double Width, double Center)
     public static WindowLevel Mediastinum { get; } = new(350, 50);
 
     /// <summary>
+    /// Nudges the window, as a right-drag does (FR-302).
+    /// </summary>
+    /// <remarks>
+    /// Width is floored at 1 rather than allowed through zero. Below 1 the DICOM LINEAR
+    /// transform divides by a negative number and the image inverts, which looks like a
+    /// rendering bug and is really a window that has been dragged inside out.
+    /// </remarks>
+    public WindowLevel AdjustedBy(double widthDelta, double centerDelta) =>
+        new(Math.Max(1, Width + widthDelta), Center + centerDelta);
+
+    /// <summary>
     /// FR-306: the series' own WindowCenter (0028,1050) and WindowWidth (0028,1051) when
     /// it carries them, otherwise soft tissue. The scanner's own setting is what the
     /// technologist chose while acquiring, so it is a better first guess than any preset.

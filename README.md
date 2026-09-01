@@ -16,14 +16,15 @@ that is the point of the exercise, not an oversight.
 
 ## Status
 
-**Iteration 1 of 5 complete.** A folder of DICOM becomes a validated `Volume`, or a
-clear typed rejection naming the rule that failed. There is no window yet, so there is
-no screenshot yet; this section gets one when Iteration 3 lands the 2x2 MPR layout.
+**Iteration 2 of 5 complete.** A folder of DICOM becomes a validated `Volume`, or a
+clear typed rejection naming the rule that failed; the axial plane renders to screen and
+scrolls, and the window/level presets work. A screenshot goes here when Iteration 3 lands
+the 2x2 MPR layout, which is the one worth showing.
 
 | Iteration | Goal | State |
 |---|---|---|
 | 1 | Folder of DICOM to validated `Volume` | Done, pending the acceptance run against real data |
-| 2 | Single axial viewport, scroll, window/level | Not started |
+| 2 | Single axial viewport, scroll, window/level | Done |
 | 3 | 2x2 MPR with linked crosshairs | Not started |
 | 4 | Measurement and oblique reslicing | Not started |
 | 5 | Plugin platform and polish | Not started |
@@ -37,8 +38,17 @@ dotnet build -warnaserror
 dotnet test
 ```
 
-There is no application to run yet. The Iteration 1 harness is a console probe that
-exercises the whole load pipeline over the Generic Host:
+```
+dotnet run --project src/InterviewTrea.App
+dotnet run --project src/InterviewTrea.App -- data/<your study folder>
+```
+
+The optional folder argument skips the dialog. It exists as a demo safeguard: on an
+unfamiliar machine, clicking through a folder picker to a path you have not memorised is
+the easiest way to lose thirty seconds of a ten-minute slot.
+
+The Iteration 1 console probe exercises the same load pipeline with no window at all,
+which is how the composition root got tested before there was a UI to hide it:
 
 ```
 dotnet run --project tools/InterviewTrea.Probe -- data/<your study folder>
@@ -66,18 +76,23 @@ Dependencies point one way. The rule is enforced by target framework, not by con
 every library targets plain `net8.0`, so WPF types are not merely discouraged in the
 rendering and geometry code, they do not exist in the compilation.
 
+**Controls.** Wheel scrolls slices, right-drag sets window and level, middle-drag pans,
+Ctrl+wheel zooms about the cursor. The only visible chrome is the regulatory banner, the
+Open Folder button, and the window preset dropdown.
+
 ```
 InterviewTrea.Core            depends on nothing
         ^
         |-- InterviewTrea.Dicom          Core only. fo-dicom appears here and nowhere else.
-        |-- InterviewTrea.Rendering      Core only. Produces byte[]. Never System.Windows.*   (It. 2)
+        |-- InterviewTrea.Rendering      Core only. Produces byte[]. Never System.Windows.*
         |-- InterviewTrea.Applications.Abstractions   Core only. The plugin contract.          (It. 5)
                 ^
-                |-- InterviewTrea.App    depends on everything. Nothing depends on it.        (It. 2)
+                |-- InterviewTrea.App    depends on everything. Nothing depends on it.
 ```
 
-`Rendering`, `Applications.Abstractions` and `App` do not exist yet. They are listed
-because the constraint that keeps them clean is already in `Directory.Build.props`.
+`Applications.Abstractions` does not exist yet. `InterviewTrea.App` is the only project
+targeting `net8.0-windows`; every other one targets plain `net8.0`, which is what makes
+the rule enforceable rather than aspirational.
 
 Volume storage is a flat `short[]` of Hounsfield units with x varying fastest. A
 512x512x400 chest study is 200 MB, which is what buys the memory budget; `float` would
@@ -130,5 +145,10 @@ Stated plainly, because a vague limitations section is worse than none.
   `Blocked` in the traceability matrix rather than assumed.
 - **The peak-memory bound holds by construction, not by measurement.** Slices decode
   directly into the final array with nothing copied, but it has not been profiled.
+- **Axial only so far.** Coronal, sagittal, slab projection and oblique reslicing are
+  Iterations 3 and 4. `Volume.SampleTrilinear` is written and tested but nothing consumes
+  it yet.
+- **A folder with several series loads the largest without asking.** FR-102 wants a
+  prompt; the picker was not in the approved control set for Iteration 2.
 - No PACS or DICOMweb connectivity, no volume rendering, no curved MPR, no multi-study
   comparison, no non-CT modalities. These are deliberate non-goals, not gaps.

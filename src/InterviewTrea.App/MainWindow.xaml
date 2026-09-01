@@ -66,7 +66,21 @@
                      Value="{Binding LoadProgress}"
                      Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibility}}" />
 
-        <Border Grid.Row="3" Background="{StaticResource Brush.Viewport}" ClipToBounds="True">
+        <!--
+            Every interaction in this iteration is a mouse gesture on this surface, so the
+            handlers live on the Border: it is the hit-testable thing that fills the area,
+            and the Image inside it moves under a transform that would otherwise take the
+            gesture coordinates with it.
+        -->
+        <Border Grid.Row="3"
+                x:Name="Viewport"
+                Background="{StaticResource Brush.Viewport}"
+                ClipToBounds="True"
+                Focusable="True"
+                MouseWheel="OnViewportMouseWheel"
+                MouseDown="OnViewportMouseDown"
+                MouseMove="OnViewportMouseMove"
+                MouseUp="OnViewportMouseUp">
             <Grid>
                 <!--
                     The rendered slice. Stretch is Uniform so the image is never distorted
@@ -75,7 +89,11 @@
                 -->
                 <Image x:Name="SliceImage"
                        Stretch="Uniform"
-                       SnapsToDevicePixels="True" />
+                       SnapsToDevicePixels="True">
+                    <Image.RenderTransform>
+                        <MatrixTransform x:Name="ViewTransform" />
+                    </Image.RenderTransform>
+                </Image>
 
                 <TextBlock Text="{Binding Status}"
                            Visibility="{Binding ShowStatusBanner, Converter={StaticResource BoolToVisibility}}"

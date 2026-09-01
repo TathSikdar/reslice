@@ -1,3 +1,5 @@
+using System;
+using System.IO;
 using System.Windows;
 using InterviewTrea.Dicom;
 using Microsoft.Extensions.DependencyInjection;
@@ -34,7 +36,16 @@ public partial class App : Application
         host = builder.Build();
         host.Start();
 
-        host.Services.GetRequiredService<MainWindow>().Show();
+        MainWindow window = host.Services.GetRequiredService<MainWindow>();
+        window.Show();
+
+        // Optional folder argument. Not a feature so much as a demo safeguard: on an
+        // unfamiliar machine, clicking through a folder dialog to a path you have not
+        // memorised is the most likely way to lose thirty seconds in a ten-minute slot.
+        if (e.Args.Length == 1 && Directory.Exists(e.Args[0]))
+        {
+            _ = window.LoadAsync(e.Args[0]);
+        }
     }
 
     protected override void OnExit(ExitEventArgs e)

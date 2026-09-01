@@ -179,6 +179,26 @@ public sealed class WindowLevelLutTests
             .Should().Be(new WindowLevel(1200, -500));
     }
 
+    [Fact]
+    public void AdjustingMovesBothAxesIndependently()
+    {
+        WindowLevel.Bone.AdjustedBy(widthDelta: -300, centerDelta: 50)
+            .Should().Be(new WindowLevel(1500, 450));
+    }
+
+    /// <summary>
+    /// A drag long enough to push the width through zero must stop at 1, not invert. Below
+    /// 1 the LINEAR transform divides by a negative number and the image comes out as a
+    /// photographic negative, which reads as a rendering bug rather than as a window
+    /// dragged inside out.
+    /// </summary>
+    [Fact]
+    public void TheWidthIsFlooredAtOneRatherThanInverting()
+    {
+        WindowLevel.Brain.AdjustedBy(widthDelta: -5000, centerDelta: 0)
+            .Should().Be(new WindowLevel(1, 40));
+    }
+
     private static VolumeMetadata Metadata(double? width, double? center) => new()
     {
         StudyInstanceUid = "1.2.3",
