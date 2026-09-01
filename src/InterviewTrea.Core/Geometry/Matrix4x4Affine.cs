@@ -87,6 +87,22 @@ public readonly record struct Matrix4x4Affine(
 
     public Point3D Transform(Point3D source) => Transform(source.X, source.Y, source.Z);
 
+    /// <summary>
+    /// Transforms a direction: the linear part only, with the translation left out.
+    /// </summary>
+    /// <remarks>
+    /// A direction has no position, so it must not pick up the origin. This is what lets
+    /// the reslice loop convert its two step vectors from patient millimetres to voxel
+    /// indices <em>once per frame</em> instead of transforming every sample point: an
+    /// affine map sends a straight, evenly spaced line to a straight, evenly spaced line,
+    /// so walking by a constant step in one space is walking by a constant step in the
+    /// other. Using <see cref="Transform(Point3D)"/> on a step vector would add the origin
+    /// to every increment and the sampled plane would run off into the corner of the
+    /// volume.
+    /// </remarks>
+    public Vector3D TransformDirection(Vector3D direction) =>
+        AxisI.Scale(direction.X) + AxisJ.Scale(direction.Y) + AxisK.Scale(direction.Z);
+
     /// <summary>Returns the transform that undoes this one.</summary>
     /// <exception cref="InvalidOperationException">The transform is singular.</exception>
     public Matrix4x4Affine Inverse()
