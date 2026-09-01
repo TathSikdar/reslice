@@ -1,4 +1,6 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
+using System.IO;
 using System.ComponentModel;
 using System.Threading.Tasks;
 using System.Windows;
@@ -6,6 +8,8 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using InterviewTrea.App.ViewModels;
 using InterviewTrea.App.Views;
+using InterviewTrea.Core.Measurements;
+using InterviewTrea.Core.Volumes;
 using InterviewTrea.Rendering.Reslicing;
 
 namespace InterviewTrea.App;
@@ -92,6 +96,43 @@ public partial class MainWindow : Window
 
     private void OnClearMeasurements(object sender, RoutedEventArgs e) =>
         viewModel.Measurements.Clear();
+
+    /// <summary>
+    /// FR-408. The document is built in Core and only the file is written here, so the
+    /// format is covered by unit tests and this method has nothing in it but a path.
+    /// </summary>
+    private void OnExportCsv(object sender, RoutedEventArgs e)
+    {
+        if (viewModel.Volume is not Volume volume)
+        {
+            return;
+        }
+
+        Microsoft.Win32.SaveFileDialog dialog = new()
+        {
+            Title = "Export measurements",
+            FileName = "measurements.csv",
+            DefaultExt = ".csv",
+            Filter = "CSV file|*.csv",
+        };
+
+        if (dialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        try
+        {
+            File.WriteAllText(dialog.FileName, MeasurementCsv.Write(viewModel.Measurements, volume));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // The one place a message box is warranted: the export was asked for
+            // explicitly, it failed, and the status line is hidden while a volume is on
+            // screen - so silence here would look like success.
+            MessageBox.Show(this, ex.Message, "Export failed", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
 
     private async void OnOpenFolder(object sender, RoutedEventArgs e)
     {
