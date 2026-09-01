@@ -54,6 +54,10 @@
     <sys:Double x:Key="Opacity.Crosshair">0.85</sys:Double>
     <sys:Double x:Key="Opacity.Marker">0.55</sys:Double>
 
+    <!-- Measurement outlines. Heavier than a crosshair arm: an arm is a reference line
+         you look past, an outline is the thing you are looking at. -->
+    <sys:Double x:Key="Size.Measurement">1.5</sys:Double>
+
     <Thickness x:Key="Thickness.Hairline">1</Thickness>
     <Thickness x:Key="Thickness.Overlay">8</Thickness>
     <Thickness x:Key="Thickness.ViewportGap">1</Thickness>

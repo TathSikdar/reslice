@@ -1,10 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using InterviewTrea.Core.Geometry;
+using InterviewTrea.Core.Measurements;
 using InterviewTrea.Core.Reslicing;
 using InterviewTrea.Core.Volumes;
 using InterviewTrea.Dicom;
@@ -201,6 +203,22 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private double slabThicknessMillimetres = 20.0;
 
+    /// <summary>
+    /// Every measurement drawn on this volume, in patient millimetres (FR-401 to FR-404).
+    /// </summary>
+    /// <remarks>
+    /// One flat list for the whole study rather than a list per pane. A measurement is a
+    /// mark on the patient and not on a viewport: the plane test in
+    /// <see cref="Measurement.IsVisibleOn"/> is what decides where it appears, so an axial
+    /// measurement shows up in the axial pane and in a maximized copy of it without being
+    /// stored twice or kept in step.
+    /// </remarks>
+    public ObservableCollection<Measurement> Measurements { get; } = [];
+
+    /// <summary>Which shape the left button draws. None leaves the navigation gestures alone.</summary>
+    [ObservableProperty]
+    private MeasurementTool tool;
+
     /// <summary>The pane filling the window on its own, or null for the 2x2 grid (FR-203).</summary>
     [ObservableProperty]
     private ViewportViewModel? maximized;
@@ -278,13 +296,29 @@ public sealed partial class MainViewModel : ObservableObject
         }
 
         Vector3D normal = plane.Normal;
-        Vector3D spacing = loaded.Spacing;
-        double step =
-            (Math.Abs(normal.X) * spacing.X) +
-            (Math.Abs(normal.Y) * spacing.Y) +
-            (Math.Abs(normal.Z) * spacing.Z);
 
-        SetCrosshair(Crosshair + normal.Scale(step * notches));
+        SetCrosshair(Crosshair + normal.Scale(StepAlong(normal) * notches));
+    }
+
+    /// <summary>
+    /// The volume's own spacing in a direction, in millimetres: the axis spacings weighted
+    /// by the direction's components. Along an axis it is exactly that axis's spacing, and
+    /// obliquely it lands between the three - which is what both callers want, the scroll
+    /// step (FR-301) and the FR-406 visibility tolerance, since both are asking how far
+    /// apart the planes of real data are in that direction.
+    /// </summary>
+    public double StepAlong(Vector3D direction)
+    {
+        if (Volume is not Volume loaded)
+        {
+            return 0;
+        }
+
+        Vector3D spacing = loaded.Spacing;
+
+        return (Math.Abs(direction.X) * spacing.X) +
+            (Math.Abs(direction.Y) * spacing.Y) +
+            (Math.Abs(direction.Z) * spacing.Z);
     }
 
     /// <summary>
@@ -372,6 +406,11 @@ public sealed partial class MainViewModel : ObservableObject
             // something for this one, and there is no control that would undo it.
             ResetAxes();
 
+            // Measurements are patient coordinates in the previous study's frame of
+            // reference. Left in place they would draw somewhere plausible on the new
+            // series and mean nothing at all.
+            Measurements.Clear();
+
             // Order matters: the panes cannot build a plane before there is a volume, and
             // SetCrosshair is what builds them. Assigning Volume first also lets the view
             // size its bitmaps once, before the first render is asked for.
@@ -410,6 +449,7 @@ public sealed partial class MainViewModel : ObservableObject
         Volume = null;
         Maximized = null;
         Status = message;
+        Measurements.Clear();
 
         foreach (ViewportViewModel viewport in Viewports)
         {

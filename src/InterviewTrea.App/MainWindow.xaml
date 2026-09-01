@@ -56,6 +56,22 @@
                         Style="{StaticResource Style.Button}"
                         Click="OnOpenFolder" />
 
+                <!--
+                    FR-401 to FR-404. A tool takes the left button over from navigation while
+                    it is selected, so None is the resting state and the entry the dropdown
+                    returns to.
+                -->
+                <TextBlock DockPanel.Dock="Left"
+                           Text="Measure:"
+                           Margin="16,0,8,0"
+                           Style="{StaticResource Style.Label}" />
+
+                <ComboBox DockPanel.Dock="Left"
+                          Width="110"
+                          Style="{StaticResource Style.ComboBox}"
+                          ItemsSource="{Binding MeasurementTools, RelativeSource={RelativeSource AncestorType=Window}}"
+                          SelectedItem="{Binding Tool}" />
+
                 <!-- FR-207. Thickness is Shift+wheel over the slab pane, shown in its overlay. -->
                 <ComboBox DockPanel.Dock="Right"
                           Width="110"

@@ -1,4 +1,5 @@
-using System;
+﻿using System;
+using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Globalization;
 using System.Windows;
@@ -9,6 +10,7 @@ using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 using InterviewTrea.App.ViewModels;
 using InterviewTrea.Core.Geometry;
+using InterviewTrea.Core.Measurements;
 using InterviewTrea.Core.Reslicing;
 using InterviewTrea.Core.Volumes;
 using InterviewTrea.Rendering.Reslicing;
@@ -53,6 +55,11 @@ public partial class ViewportControl : UserControl
     // than a total, which is what lets the rotation compose in the stored axes instead of
     // needing an accumulated angle and a plane to measure it from.
     private double? lastArmAngle;
+
+    // The measurement being dragged out, or null. Held here rather than in the shell's
+    // list so that an abandoned drag leaves nothing behind, and so a half-drawn shape can
+    // never be counted, exported or deleted while the button is still down.
+    private Measurement? pending;
 
     private MainViewModel? subscribedShell;
     private ViewportViewModel? subscribedViewport;
@@ -117,6 +124,7 @@ public partial class ViewportControl : UserControl
         if (control.subscribedShell is MainViewModel old)
         {
             old.PropertyChanged -= control.OnShellPropertyChanged;
+            old.Measurements.CollectionChanged -= control.OnMeasurementsChanged;
         }
 
         control.subscribedShell = e.NewValue as MainViewModel;
@@ -124,6 +132,7 @@ public partial class ViewportControl : UserControl
         if (control.subscribedShell is MainViewModel shell)
         {
             shell.PropertyChanged += control.OnShellPropertyChanged;
+            shell.Measurements.CollectionChanged += control.OnMeasurementsChanged;
         }
     }
 
@@ -204,6 +213,9 @@ public partial class ViewportControl : UserControl
                 break;
         }
     }
+
+    private void OnMeasurementsChanged(object? sender, NotifyCollectionChangedEventArgs e) =>
+        DrawMeasurements();
 
     private void OnHostSizeChanged(object sender, SizeChangedEventArgs e) => UpdateTransform();
 
@@ -308,6 +320,7 @@ public partial class ViewportControl : UserControl
         ViewTransform.Matrix = total;
 
         UpdateCrosshair(plane, total.M11);
+        DrawMeasurements();
         ZoomLabel = string.Create(CultureInfo.InvariantCulture, $"zoom {user.M11:0.00}x");
     }
 
@@ -379,6 +392,87 @@ public partial class ViewportControl : UserControl
 
     private double CrosshairThickness =>
         TryFindResource("Size.Crosshair") is double value ? value : 1.0;
+
+    /// <summary>
+    /// Redraws every measurement that belongs on this pane's plane, plus the one currently
+    /// being dragged out.
+    /// </summary>
+    /// <remarks>
+    /// Cheap enough to do wholesale on every crosshair move, zoom notch and pan: a handful
+    /// of outlines with no bitmap behind them. Diffing the canvas against the list would be
+    /// more code guarding a cost nobody can measure.
+    /// </remarks>
+    private void DrawMeasurements()
+    {
+        Annotations.Children.Clear();
+
+        if (Shell is not MainViewModel shell ||
+            DataContext is not ViewportViewModel viewport ||
+            viewport.IsSlab ||
+            viewport.Plane is not ReslicePlane plane)
+        {
+            return;
+        }
+
+        // FR-406. Half a step to the next plane of real data: a measurement is drawn on the
+        // slice it was made on and on nothing else. The spec's "half a slice thickness"
+        // reads as a distance here because an oblique plane has no slices to count.
+        double tolerance = shell.StepAlong(plane.Normal) / 2;
+        double thickness = MeasurementThickness / Math.Max(ViewTransform.Matrix.M11, 1e-9);
+
+        foreach (Measurement measurement in shell.Measurements)
+        {
+            if (measurement.IsVisibleOn(plane, tolerance))
+            {
+                Draw(measurement, plane, thickness);
+            }
+        }
+
+        // The pending one needs no visibility test: it is being drawn on this plane, in
+        // this pane, right now.
+        if (pending is Measurement drawing)
+        {
+            Draw(drawing, plane, thickness);
+        }
+    }
+
+    /// <summary>Adds one measurement's outline to the annotation canvas, in plane pixels.</summary>
+    /// <remarks>
+    /// The two ends are projected back through <see cref="ReslicePlane.ToPixel"/> and the
+    /// region shapes are the axis-aligned box between them. That is exact rather than
+    /// approximate, because a measurement is only ever drawn on a plane parallel to the
+    /// frame it was made in, and that frame's axes are the pane's own - so "across" and
+    /// "down" in the measurement are the pixel x and y here.
+    /// </remarks>
+    private void Draw(Measurement measurement, ReslicePlane plane, double thickness)
+    {
+        (double startColumn, double startRow) = plane.ToPixel(measurement.Start);
+        (double endColumn, double endRow) = plane.ToPixel(measurement.End);
+
+        Shape shape;
+
+        if (measurement.Kind == MeasurementKind.Distance)
+        {
+            shape = new Line { X1 = startColumn, Y1 = startRow, X2 = endColumn, Y2 = endRow };
+        }
+        else
+        {
+            shape = measurement.Kind == MeasurementKind.Ellipse ? new Ellipse() : new Rectangle();
+            shape.Width = Math.Abs(endColumn - startColumn);
+            shape.Height = Math.Abs(endRow - startRow);
+            Canvas.SetLeft(shape, Math.Min(startColumn, endColumn));
+            Canvas.SetTop(shape, Math.Min(startRow, endRow));
+        }
+
+        shape.Stroke = MeasurementBrush;
+        shape.StrokeThickness = thickness;
+        Annotations.Children.Add(shape);
+    }
+
+    private Brush? MeasurementBrush => TryFindResource("Brush.Accent") as Brush;
+
+    private double MeasurementThickness =>
+        TryFindResource("Size.Measurement") is double value ? value : 1.0;
 
     /// <summary>Turns a mouse position into a patient-space point, or null if there is no plane.</summary>
     private void OnMouseLeave(object sender, MouseEventArgs e) => HoverLabel = string.Empty;
@@ -493,7 +587,7 @@ public partial class ViewportControl : UserControl
                 shell.ToggleMaximized(viewport);
             }
         }
-        else if (e.ChangedButton == MouseButton.Left)
+        else if (e.ChangedButton == MouseButton.Left && !TryStartMeasurement(lastMousePosition))
         {
             // FR-307. One button, two gestures, told apart by where the press landed: on an
             // arm it turns the other planes, anywhere else it moves the crosshair. That
@@ -537,7 +631,15 @@ public partial class ViewportControl : UserControl
 
         if (e.LeftButton == MouseButtonState.Pressed)
         {
-            if (lastArmAngle is double previous && AngleAboutCrosshair(current) is double angle)
+            if (pending is Measurement drawing)
+            {
+                if (ToPatient(current) is Point3D patient)
+                {
+                    pending = drawing with { End = patient };
+                    DrawMeasurements();
+                }
+            }
+            else if (lastArmAngle is double previous && AngleAboutCrosshair(current) is double angle)
             {
                 // IEEERemainder folds the difference into [-pi, pi], which matters only at
                 // the one place atan2 wraps: dragging an arm through due west would
@@ -569,11 +671,66 @@ public partial class ViewportControl : UserControl
     private void OnMouseUp(object sender, MouseButtonEventArgs e)
     {
         lastArmAngle = null;
+        CommitMeasurement();
 
         if (Host.IsMouseCaptured)
         {
             Host.ReleaseMouseCapture();
             e.Handled = true;
+        }
+    }
+
+    /// <summary>
+    /// Begins a measurement if a tool is selected, and reports whether it took the press.
+    /// </summary>
+    /// <remarks>
+    /// A tool takes the left button over from navigation completely - no arm grab, no
+    /// crosshair move. One press cannot mean two things, and a drawing gesture that
+    /// sometimes scrolled the slice out from under the drawing would be unusable.
+    ///
+    /// The frame is anchored at the pressed point rather than at the crosshair. Both lie on
+    /// this plane, so both give the same FR-406 distance, but the pressed point is the one
+    /// already computed here and it cannot later be moved by a click in another pane.
+    /// </remarks>
+    private bool TryStartMeasurement(Point mousePosition)
+    {
+        if (Shell is not MainViewModel shell ||
+            shell.Tool == MeasurementTool.None ||
+            DataContext is not ViewportViewModel viewport ||
+            viewport.IsSlab ||
+            ToPatient(mousePosition) is not Point3D patient)
+        {
+            return false;
+        }
+
+        (Vector3D row, Vector3D column) = shell.AxesFor(viewport.Orientation);
+        pending = new Measurement(
+            shell.Tool.ToKind(), new MeasurementFrame(patient, row, column), patient, patient);
+
+        return true;
+    }
+
+    /// <summary>
+    /// Ends a drawing drag. A drag shorter than one output pixel is dropped as a mis-click:
+    /// it would store a zero-length distance or an empty region, and the user would then
+    /// have to find and delete something they cannot see.
+    /// </summary>
+    private void CommitMeasurement()
+    {
+        if (pending is not Measurement drawn || Shell is not MainViewModel shell)
+        {
+            return;
+        }
+
+        pending = null;
+
+        if (drawn.LengthMillimetres >= shell.PixelSizeMillimetres)
+        {
+            shell.Measurements.Add(drawn);
+        }
+        else
+        {
+            DrawMeasurements();
         }
     }
 
