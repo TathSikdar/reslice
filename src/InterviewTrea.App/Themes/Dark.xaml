@@ -49,6 +49,15 @@
     <sys:Double x:Key="Size.Border.Hairline">1</sys:Double>
     <sys:Double x:Key="Opacity.Overlay">0.7</sys:Double>
 
+    <sys:Double x:Key="Size.Text.Marker">11</sys:Double>
+    <sys:Double x:Key="Size.Crosshair">1</sys:Double>
+    <sys:Double x:Key="Opacity.Crosshair">0.85</sys:Double>
+    <sys:Double x:Key="Opacity.Marker">0.55</sys:Double>
+
+    <Thickness x:Key="Thickness.Hairline">1</Thickness>
+    <Thickness x:Key="Thickness.Overlay">8</Thickness>
+    <Thickness x:Key="Thickness.ViewportGap">1</Thickness>
+
     <Thickness x:Key="Thickness.Toolbar">8,6,8,6</Thickness>
     <Thickness x:Key="Thickness.Control">10,4,10,4</Thickness>
     <CornerRadius x:Key="CornerRadius.Control">2</CornerRadius>
@@ -93,12 +102,37 @@
         <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
 
+    <!--
+        A halo, not a drop shadow: zero offset, small blur, pure black. Overlay text sits
+        on top of the image, and 700 HU bone renders as white - grey-on-white is
+        unreadable, which makes an orientation marker that is present but invisible over
+        exactly the anatomy you are looking at. Offsetting this would be a shadow and the
+        project's visual rules rule those out; a symmetric dark edge is the same thing
+        every workstation does for the same reason.
+    -->
+    <DropShadowEffect x:Key="Effect.TextHalo" Color="Black" ShadowDepth="0" BlurRadius="3" Opacity="1" />
+
     <!-- Overlays sit over the image and must never compete with it (Phase 1 visual rules). -->
     <Style x:Key="Style.Overlay" TargetType="TextBlock">
         <Setter Property="Foreground" Value="{StaticResource Brush.Text.Primary}" />
         <Setter Property="FontFamily" Value="{StaticResource Font.Numeric}" />
         <Setter Property="FontSize" Value="{StaticResource Size.Text.Overlay}" />
         <Setter Property="Opacity" Value="{StaticResource Opacity.Overlay}" />
+        <Setter Property="Effect" Value="{StaticResource Effect.TextHalo}" />
+    </Style>
+
+    <!--
+        FR-204 edge markers. Fainter than the readouts on purpose: they are a constant
+        reassurance rather than a value anyone reads, and at full strength four letters
+        round every pane is visual noise over the image.
+    -->
+    <Style x:Key="Style.Marker" TargetType="TextBlock">
+        <Setter Property="Foreground" Value="{StaticResource Brush.Text.Secondary}" />
+        <Setter Property="FontFamily" Value="{StaticResource Font.Interface}" />
+        <Setter Property="FontSize" Value="{StaticResource Size.Text.Marker}" />
+        <Setter Property="Opacity" Value="{StaticResource Opacity.Marker}" />
+        <Setter Property="Margin" Value="{StaticResource Thickness.Overlay}" />
+        <Setter Property="Effect" Value="{StaticResource Effect.TextHalo}" />
     </Style>
 
     <Style x:Key="Style.ComboBoxItem" TargetType="ComboBoxItem">
