@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <!-- BenchmarkDotNet's generated bootstrap does not satisfy the solution's analyzers. -->
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BenchmarkDotNet" Version="0.14.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\InterviewTrea.Rendering\InterviewTrea.Rendering.csproj" />
+    <ProjectReference Include="..\InterviewTrea.TestData\InterviewTrea.TestData.csproj" />
+  </ItemGroup>
+
+</Project>
