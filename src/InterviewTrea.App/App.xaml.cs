@@ -28,6 +28,7 @@ public partial class App : Application
         builder.Services.AddSingleton<GeometryValidator>();
         builder.Services.AddSingleton<VolumeBuilder>();
 
+        builder.Services.AddSingleton<ViewModels.MainViewModel>();
         builder.Services.AddSingleton<MainWindow>();
 
         host = builder.Build();

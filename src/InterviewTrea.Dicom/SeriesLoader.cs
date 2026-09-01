@@ -46,12 +46,15 @@ public sealed record DirectoryScan(
 /// </remarks>
 public sealed class SeriesLoader
 {
+    /// <param name="progress">
+    /// Fraction of files examined, 0 to 1 (FR-108). Optional: the console probe has no
+    /// use for it.
+    /// </param>
     // CA1822 is right that this touches no instance state today. It stays an instance
     // method because the loader is registered in the container and will take an ILogger
-    // and a progress callback (FR-108) in Iteration 2; making it static now would mean
-    // changing every call site then.
+    // in a later iteration; making it static now would mean changing every call site then.
 #pragma warning disable CA1822
-    public DirectoryScan Scan(string directory)
+    public DirectoryScan Scan(string directory, IProgress<double>? progress = null)
 #pragma warning restore CA1822
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(directory);
@@ -66,8 +69,18 @@ public sealed class SeriesLoader
 
         // Recursive: TCIA archives unpack into a study folder containing one directory per
         // series, and pointing the viewer at the study root is the obvious thing to do.
-        foreach (string path in Directory.EnumerateFiles(directory, "*", SearchOption.AllDirectories))
+        //
+        // Materialised rather than enumerated lazily, because FR-108 asks for a
+        // *determinate* progress bar and there is no denominator until the paths are
+        // counted. A study is a few thousand strings; the pixel data it points at is a
+        // few hundred megabytes, so this is not where the memory goes.
+        string[] paths = Directory.GetFiles(directory, "*", SearchOption.AllDirectories);
+
+        for (int f = 0; f < paths.Length; f++)
         {
+            string path = paths[f];
+            progress?.Report((double)f / paths.Length);
+
             DicomDataset? dataset = TryOpen(path, skipped);
             if (dataset is null)
             {

@@ -25,10 +25,17 @@ public sealed record VolumeBuildResult(
 /// </summary>
 public sealed class VolumeBuilder
 {
+    /// <param name="progress">
+    /// Fraction of slices decoded, 0 to 1 (FR-108). Optional: the console probe has no
+    /// use for it.
+    /// </param>
     // CA1822: instance rather than static because the builder is a registered service and
-    // takes a progress callback in Iteration 2 (FR-108).
+    // will take an ILogger in a later iteration.
 #pragma warning disable CA1822
-    public VolumeBuildResult Build(SeriesDescriptor series, SeriesGeometry geometry)
+    public VolumeBuildResult Build(
+        SeriesDescriptor series,
+        SeriesGeometry geometry,
+        IProgress<double>? progress = null)
 #pragma warning restore CA1822
     {
         ArgumentNullException.ThrowIfNull(series);
@@ -52,6 +59,7 @@ public sealed class VolumeBuilder
         for (int k = 0; k < dimZ; k++)
         {
             SliceHeader header = geometry.OrderedSlices[k];
+            progress?.Report((double)k / dimZ);
 
             // Reopened with pixel data this time; the scan deliberately skipped it. Reading
             // each file twice costs one extra header parse and saves holding a study in
