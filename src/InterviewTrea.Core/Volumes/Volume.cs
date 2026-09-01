@@ -130,4 +130,126 @@ public sealed class Volume
             return Voxels[IndexOf(i, j, k)];
         }
     }
+
+    /// <summary>
+    /// Value returned for a sample that falls outside the volume.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately not the -1000 of real scanned air. -1024 is the bottom of the CT
+    /// range and reads as "no data here", so a bug that samples off the end shows up as a
+    /// too-dark border rather than blending invisibly into lung.
+    /// </remarks>
+    public const short OutsideValue = -1024;
+
+    /// <summary>
+    /// True when a continuous voxel coordinate lies inside the sampling domain.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The domain is [0, Dim-1] inclusive: voxel centre to voxel centre. A DICOM voxel
+    /// index names the <em>centre</em> of that voxel (ImagePositionPatient is defined as
+    /// the centre of the first pixel), so there is no half-voxel offset anywhere in this
+    /// file. The half voxel of physical extent beyond the outermost centres is treated as
+    /// outside so that nearest and trilinear agree on where the volume ends; if they
+    /// disagreed, the two render modes would draw different silhouettes.
+    /// </para>
+    /// <para>
+    /// NaN fails both comparisons and so reports as outside, which is the wanted answer.
+    /// </para>
+    /// </remarks>
+    public bool ContainsContinuous(double x, double y, double z) =>
+        x >= 0 && x <= DimX - 1 &&
+        y >= 0 && y <= DimY - 1 &&
+        z >= 0 && z <= DimZ - 1;
+
+    /// <summary>Nearest-neighbour sample at a continuous voxel coordinate.</summary>
+    public short SampleNearest(double x, double y, double z)
+    {
+        if (!ContainsContinuous(x, y, z))
+        {
+            return OutsideValue;
+        }
+
+        // floor(v + 0.5), not Math.Round: Math.Round defaults to banker's rounding, which
+        // would send 0.5 down and 1.5 up. Ties round up, consistently.
+        return Voxels[IndexOf(
+            (int)Math.Floor(x + 0.5),
+            (int)Math.Floor(y + 0.5),
+            (int)Math.Floor(z + 0.5))];
+    }
+
+    /// <summary>Nearest-neighbour sample at a patient-space point.</summary>
+    public short SampleNearest(Point3D patient)
+    {
+        Point3D v = PatientToVoxel.Transform(patient);
+        return SampleNearest(v.X, v.Y, v.Z);
+    }
+
+    /// <summary>
+    /// Trilinear sample at a continuous voxel coordinate: the eight surrounding voxels
+    /// blended by proximity.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Returns <c>double</c> rather than <c>short</c> because the blend genuinely is
+    /// fractional. Slab MIP and slab average accumulate many samples, and rounding each
+    /// one to an integer injects up to half a Hounsfield unit of bias per sample.
+    /// </para>
+    /// <para>
+    /// Trilinear rather than a cubic kernel because a cubic has negative lobes and
+    /// overshoots: sampling near a bone or metal edge would produce HU values that exist
+    /// nowhere in the data. Trilinear never leaves the range of its eight inputs, which
+    /// matters in a viewer where the user reads numbers off the image.
+    /// </para>
+    /// </remarks>
+    public double SampleTrilinear(double x, double y, double z)
+    {
+        if (!ContainsContinuous(x, y, z))
+        {
+            return OutsideValue;
+        }
+
+        int i0 = (int)Math.Floor(x);
+        int j0 = (int)Math.Floor(y);
+        int k0 = (int)Math.Floor(z);
+
+        double tx = x - i0;
+        double ty = y - j0;
+        double tz = z - k0;
+
+        // Offset to the far neighbour on each axis, collapsed to zero on the last plane
+        // so the read cannot run off the end. Its weight is exactly zero there, so the
+        // clamp changes no result - it only stops an index fault.
+        int dx = i0 + 1 < DimX ? 1 : 0;
+        int dy = j0 + 1 < DimY ? DimX : 0;
+        int dz = k0 + 1 < DimZ ? sliceStride : 0;
+
+        int b = IndexOf(i0, j0, k0);
+
+        // Collapse the cube one axis at a time: four lerps along x reduce it to a square,
+        // two along y reduce that to a line, one along z gives the answer. Seven lerps,
+        // no divisions, no branches.
+        double c00 = Lerp(Voxels[b], Voxels[b + dx], tx);
+        double c10 = Lerp(Voxels[b + dy], Voxels[b + dy + dx], tx);
+        double c01 = Lerp(Voxels[b + dz], Voxels[b + dz + dx], tx);
+        double c11 = Lerp(Voxels[b + dz + dy], Voxels[b + dz + dy + dx], tx);
+
+        return Lerp(Lerp(c00, c10, ty), Lerp(c01, c11, ty), tz);
+    }
+
+    /// <summary>Trilinear sample at a patient-space point.</summary>
+    /// <remarks>
+    /// The voxel-space overload is the hot path. An MPR scanline walks by adding a
+    /// constant step vector, so it converts once per row and increments; calling this
+    /// per sample would put a matrix multiply in the inner loop for nothing.
+    /// </remarks>
+    public double SampleTrilinear(Point3D patient)
+    {
+        Point3D v = PatientToVoxel.Transform(patient);
+        return SampleTrilinear(v.X, v.Y, v.Z);
+    }
+
+    // a + (b - a) * t rather than (1 - t) * a + t * b: exact at both endpoints and one
+    // multiply cheaper.
+    private static double Lerp(double a, double b, double t) => a + ((b - a) * t);
 }
