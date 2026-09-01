@@ -95,9 +95,19 @@ public sealed class MeasurementTests
         (Rect(20, 30) with { Kind = MeasurementKind.Ellipse })
             .AreaSquareMillimetres.Should().BeApproximately(Math.PI * 10 * 15, 1e-12);
 
-    [Fact]
-    public void AreaIsUnsignedSoADragUpAndLeftMeasuresTheSame() =>
-        Rect(-20, -30).AreaSquareMillimetres.Should().BeApproximately(600.0, 1e-12);
+    /// <summary>
+    /// A drag can go any of four ways and all four enclose the same 600 mm^2. The
+    /// mixed-sign cases are the ones that matter: with both spans negative the signs
+    /// cancel in the product, so a version that forgot to take the magnitude would still
+    /// pass on an up-and-left drag while returning -600 for a down-and-left one.
+    /// </summary>
+    [Theory]
+    [InlineData(20, 30)]
+    [InlineData(-20, -30)]
+    [InlineData(-20, 30)]
+    [InlineData(20, -30)]
+    public void AreaIsUnsignedWhicheverWayTheDragWent(double across, double down) =>
+        Rect(across, down).AreaSquareMillimetres.Should().BeApproximately(600.0, 1e-12);
 
     [Fact]
     public void ADistanceEnclosesNothing() =>
@@ -149,6 +159,28 @@ public sealed class MeasurementTests
     [Fact]
     public void ADragUpAndLeftStillContainsItsOwnMidpoint() =>
         Rect(-20, -30).Contains(new Point3D(-10, -15, 0)).Should().BeTrue();
+
+    /// <summary>
+    /// A rectangle has to be bounded on all four sides. Both ends of both axes are checked
+    /// because a containment test is easy to write with only the far bound, which passes
+    /// every test that asks about points inside the shape and quietly makes the region
+    /// infinite in the other direction - the statistics would then average a quadrant of
+    /// the image.
+    /// </summary>
+    [Theory]
+    [InlineData(-0.01, 15)]
+    [InlineData(20.01, 15)]
+    [InlineData(10, -0.01)]
+    [InlineData(10, 30.01)]
+    public void APointBeyondAnyEdgeIsOutsideTheRectangle(double across, double down) =>
+        Rect(20, 30).Contains(new Point3D(across, down, 0)).Should().BeFalse();
+
+    /// <summary>The same four sides on a drag that ran the other way.</summary>
+    [Theory]
+    [InlineData(0.01, -15)]
+    [InlineData(-20.01, -15)]
+    public void APointBeyondAnyEdgeIsOutsideAReversedRectangle(double across, double down) =>
+        Rect(-20, -30).Contains(new Point3D(across, down, 0)).Should().BeFalse();
 
     // ---- FR-406: when a measurement belongs on the plane in front of you ----
 
