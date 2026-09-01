@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The one project permitted to override Directory.Build.props. NFR-301 is enforced by
+    target framework: every other project targets plain net8.0, where the WPF types do
+    not exist at all, so "using System.Windows;" cannot compile outside this project.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <OutputType>WinExe</OutputType>
+    <UseWPF>true</UseWPF>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\InterviewTrea.Core\InterviewTrea.Core.csproj" />
+    <ProjectReference Include="..\InterviewTrea.Dicom\InterviewTrea.Dicom.csproj" />
+    <ProjectReference Include="..\InterviewTrea.Rendering\InterviewTrea.Rendering.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.3.2" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.1" />
+  </ItemGroup>
+
+</Project>
