@@ -74,9 +74,72 @@ last one stays available.
 
 ## Optimizations
 
-None yet. Each one gets a row here with its own before and after, measured on this machine
-with this workload.
+Applied in the order §7.1 recommends, measured after each. One of the two was reverted.
 
-| Change | Benchmark | Before | After | Speed-up |
-|---|---|---|---|---|
-| _(none applied)_ | | | | |
+| # | Change | Benchmark | Before | After | Result |
+|---|---|---|---|---:|---:|---|
+| §7.1-3 | Skip the duplicate bounds test: the slab loop already calls `ContainsContinuous` before every sample, so it called an unguarded `SampleTrilinearInside` instead of `SampleTrilinear` | `SlabMaximum20Mm` | 81.4 ms | 116.4 ms | **43% slower — reverted** |
+| §7.1-4 | Render slab rows on `Parallel.For` | `SlabMaximum20Mm` | 81.5 ms | 14.1 ms | **5.8x faster — kept** |
+
+### The optimization that made it slower
+
+Removing six double comparisons per sample cost 43%, reproducibly, with a standard
+deviation under half a millisecond on both sides. The baseline was re-measured immediately
+afterwards on the same machine and came back at 81.4 ms, so this is not thermal drift.
+
+Two hypotheses were tested and both were wrong. Splitting `SampleTrilinear` into a guard
+plus an unguarded body was not the cause: duplicating the body into a separate method and
+leaving `SampleTrilinear` completely untouched gave the same 116 ms. Inlining was not the
+cause either: forcing `[MethodImpl(NoInlining)]` on the unguarded twin gave 116.4 ms again.
+
+So the situation is two methods with identical arithmetic, called from the same site on the
+same data, where the one doing strictly less work is reliably half as fast again — and no
+explanation that survives contact with the measurements. Most likely it is something below
+the source level, code layout or loop alignment, which would need a disassembly or a
+hardware-counter profile to confirm.
+
+That work was not done, because the change was worth 43% in the wrong direction and the
+next item on the list was worth 5.8x in the right one. **The change was reverted and the
+guess about why was not committed to the code.** A comment claiming an alignment effect
+that was never verified would be worse than no comment, and the earlier entries in
+`docs/ai-assistance-log.md` are all about exactly that failure mode.
+
+The general point is the one the whole file exists for: §7.1 lists its techniques "roughly
+in order of payoff", and roughly is doing real work in that sentence. Technique 3 was a
+loss here and technique 4 cleared the requirement on its own.
+
+### The optimization that worked
+
+`Parallel.For` over output rows, on six cores. Each row writes a disjoint run of the
+destination and reads nothing another row writes, so there is no synchronisation in the
+renderer at all — which is why the row start is recomputed from the plane origin instead of
+carried over from the previous row. That decision was made when the loop was first written,
+before there was any intention to parallelise it, and it is the reason this change was four
+lines.
+
+5.8x on six cores is a little under linear, which is what a memory-bound loop should give:
+the cores are competing for the same memory bandwidth, so the sixth one cannot be as
+productive as the first.
+
+Cost: allocation per frame goes from effectively zero to 4.3 KB, which is `Parallel.For`'s
+own range and task bookkeeping. At about seventy frames a second that is 300 KB/s of
+generation-0 garbage, which is noise next to the 134 MB volume the loop is already
+streaming. A custom partitioner would remove it and is not worth the code until something
+measures it as a problem.
+
+The plane renderer was deliberately left serial. At 2.4 ms against an 8 ms target it does
+not need the cores, and taking them would make it compete with the slab pane it shares a
+window with.
+
+## After — 2026-09-01
+
+| Benchmark | Requirement | Target | Mean | StdDev | Allocated | Verdict |
+|---|---|---|---:|---:|---:|---|
+| `AxialFastPath` | NFR-201 | < 8 ms | 0.109 ms | 0.001 ms | 0 B | Pass |
+| `AxialThroughThePlaneRenderer` | NFR-201 | < 8 ms | **2.406 ms** | 0.020 ms | 2 B | Pass, 3.3x headroom |
+| `ObliqueReslice` | NFR-202 | < 16 ms | **1.945 ms** | 0.012 ms | 1 B | Pass, 8.2x headroom |
+| `SlabMaximum20Mm` | NFR-203 | < 33 ms | **14.109 ms** | 0.152 ms | 4.3 KB | Pass, 2.3x headroom |
+| `SlabAverage20Mm` | NFR-203 | < 33 ms | **14.067 ms** | 0.111 ms | 4.3 KB | Pass, 2.3x headroom |
+
+All three NFR-200 targets are met. The two figures that did not move are unchanged code and
+are quoted here only so the table is complete.

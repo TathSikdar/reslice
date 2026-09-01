@@ -34,6 +34,15 @@ public sealed class WindowLevelLut
     /// <summary>Indexed by <c>hounsfield + <see cref="Bias"/></c>.</summary>
     public ReadOnlySpan<byte> Table => table;
 
+    /// <summary>
+    /// The same table as an array, for callers that cannot hold a <c>ref struct</c> -
+    /// the parallel slab loop captures it in a lambda, and a span cannot cross that
+    /// boundary. Treat it as read-only; it is the live table, not a copy.
+    /// </summary>
+#pragma warning disable CA1819 // Properties should not return arrays - deliberate, see above.
+    public byte[] TableArray => table;
+#pragma warning restore CA1819
+
     public byte this[short hounsfield] => table[hounsfield + Bias];
 
     /// <summary>

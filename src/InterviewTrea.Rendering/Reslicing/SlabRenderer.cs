@@ -1,4 +1,5 @@
 using System;
+using System.Threading.Tasks;
 using InterviewTrea.Core.Geometry;
 using InterviewTrea.Core.Reslicing;
 using InterviewTrea.Core.Volumes;
@@ -19,6 +20,12 @@ namespace InterviewTrea.Rendering.Reslicing;
 /// crosshair stays put.
 /// </para>
 /// <para>
+/// The rows are rendered in parallel. Each one writes a disjoint run of the destination
+/// and reads nothing another row writes, so there is no synchronisation anywhere in here -
+/// which is why the row start is recomputed from the plane origin rather than carried over
+/// from the previous row.
+/// </para>
+/// <para>
 /// Samples along the normal are spaced at the same millimetre pitch as the in-plane
 /// samples. Anything coarser would alias structures the slab is meant to capture - a
 /// 3 mm-pitch MIP can step straight over a 1 mm vessel - and anything finer would resolve
@@ -33,11 +40,12 @@ public static class SlabRenderer
         SlabMode mode,
         double thicknessMillimetres,
         WindowLevelLut lut,
-        Span<byte> destination)
+        byte[] destination)
     {
         ArgumentNullException.ThrowIfNull(volume);
         ArgumentNullException.ThrowIfNull(plane);
         ArgumentNullException.ThrowIfNull(lut);
+        ArgumentNullException.ThrowIfNull(destination);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(thicknessMillimetres);
 
         if (destination.Length != plane.PixelCount)
@@ -72,15 +80,17 @@ public static class SlabRenderer
         Vector3D depthStep = toVoxel.TransformDirection(plane.Normal.Scale(spacing));
         Vector3D toFirstSample = toVoxel.TransformDirection(plane.Normal.Scale(firstOffset));
 
-        ReadOnlySpan<byte> table = lut.Table;
+        // The table is an array rather than a span here for the same reason the destination
+        // is: a ref struct cannot be captured by the lambda below.
+        byte[] table = lut.TableArray;
         int width = plane.Width;
-        int destinationIndex = 0;
 
-        for (int r = 0; r < plane.Height; r++)
+        Parallel.For(0, plane.Height, r =>
         {
             double x = start.X + (downColumn.X * r) + toFirstSample.X;
             double y = start.Y + (downColumn.Y * r) + toFirstSample.Y;
             double z = start.Z + (downColumn.Z * r) + toFirstSample.Z;
+            int destinationIndex = r * width;
 
             for (int c = 0; c < width; c++)
             {
@@ -132,6 +142,6 @@ public static class SlabRenderer
                 y += acrossRow.Y;
                 z += acrossRow.Z;
             }
-        }
+        });
     }
 }
