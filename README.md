@@ -24,12 +24,18 @@ other three. All three NFR-200 performance targets are met — see
 
 ![The 2x2 MPR layout with linked crosshairs](docs/images/mpr-2x2.png)
 
-*Synthetic phantom, 128 x 128 x 60 at 0.7 x 0.7 x 3.0 mm. No patient data appears anywhere
-in this repository.*
+*LIDC-IDRI-0599, 456 slices at 512 x 512, 0.56 x 0.56 x 0.70 mm, in the lung window the
+series itself carries. Note the bottom-right pane: a 20 mm maximum-intensity slab resolves
+the vascular tree as continuous branches where the thin axial above it shows the same
+vessels as disconnected dots. Data from
+[The Cancer Imaging Archive](https://doi.org/10.7937/K9/TCIA.2015.LO9QL9SX), de-identified
+by its publishers and used under CC BY 3.0; see [Attribution](#attribution). No DICOM is
+committed to this repository, and no patient identifier is displayed in any viewport
+(DI-1).*
 
 | Iteration | Goal | State |
 |---|---|---|
-| 1 | Folder of DICOM to validated `Volume` | Done, pending the acceptance run against real data |
+| 1 | Folder of DICOM to validated `Volume` | Done |
 | 2 | Single axial viewport, scroll, window/level | Done |
 | 3 | 2x2 MPR with linked crosshairs | Done |
 | 4 | Measurement and oblique reslicing | Not started |
@@ -173,3 +179,20 @@ Stated plainly, because a vague limitations section is worse than none.
   than a guess. See [docs/performance.md](docs/performance.md).
 - No PACS or DICOMweb connectivity, no volume rendering, no curved MPR, no multi-study
   comparison, no non-CT modalities. These are deliberate non-goals, not gaps.
+
+## Attribution
+
+The screenshots and the acceptance runs use the **LIDC-IDRI** collection from The Cancer
+Imaging Archive, de-identified by its publishers and licensed
+[CC BY 3.0](https://creativecommons.org/licenses/by/3.0/). No DICOM is redistributed here.
+
+> Armato SG III, McLennan G, Bidaut L, et al. *Data From LIDC-IDRI*. The Cancer Imaging
+> Archive, 2015. https://doi.org/10.7937/K9/TCIA.2015.LO9QL9SX
+>
+> Armato SG III, McLennan G, Bidaut L, et al. "The Lung Image Database Consortium (LIDC)
+> and Image Database Resource Initiative (IDRI): A completed reference database of lung
+> nodules on CT scans." *Medical Physics* 38(2): 915-931, 2011.
+>
+> Clark K, Vendt B, Smith K, et al. "The Cancer Imaging Archive (TCIA): Maintaining and
+> Operating a Public Information Repository." *Journal of Digital Imaging* 26(6):
+> 1045-1057, 2013.
