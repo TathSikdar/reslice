@@ -110,6 +110,35 @@ public static class Phantoms
     }
 
     /// <summary>
+    /// A sheet of tissue perpendicular to the x axis, centred on the patient origin and
+    /// unbounded in y and z. With the default 33 columns at 1 mm there is a voxel plane
+    /// exactly at x = 0, so a 1 mm sheet is one voxel thick.
+    /// </summary>
+    /// <remarks>
+    /// The phantom for sampling pitch. A slab projection that steps along the normal too
+    /// coarsely walks straight over a structure this thin and never sees it - the same
+    /// failure as a 3 mm MIP missing a 1 mm vessel. A linear ramp cannot detect that,
+    /// because the maximum of a monotonic function over an interval is its endpoint no
+    /// matter how many samples you take in between.
+    /// </remarks>
+    public static Volume SheetAcrossX(
+        double thicknessMm = 1.0,
+        short insideHounsfield = Bone,
+        short outsideHounsfield = Air,
+        int dimX = 33,
+        int dimY = 16,
+        int dimZ = 16,
+        Vector3D? spacing = null)
+    {
+        double halfThickness = thicknessMm / 2.0;
+
+        return Build(dimX, dimY, dimZ, spacing, "SHEET",
+            (_, _, _, patient) => Math.Abs(patient.X) <= halfThickness
+                ? insideHounsfield
+                : outsideHounsfield);
+    }
+
+    /// <summary>
     /// Alternating blocks of <paramref name="periodVoxels"/> on a side. The worst case
     /// for an interpolator: verifies aliasing behaviour and that smoothing happens where
     /// it should.
