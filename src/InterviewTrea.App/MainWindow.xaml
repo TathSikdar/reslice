@@ -1,4 +1,4 @@
-<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+﻿<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:views="clr-namespace:InterviewTrea.App.Views"
         xmlns:windowing="clr-namespace:InterviewTrea.Rendering.Windowing;assembly=InterviewTrea.Rendering"
@@ -9,6 +9,16 @@
 
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+        <!--
+            An ItemTemplate rather than DisplayMemberPath. Style.ComboBox is fully
+            retemplated, and its selection box draws SelectionBoxItem through
+            SelectionBoxItemTemplate; measured behaviour is that DisplayMemberPath does not
+            reach that template, so the closed box fell back to the record's ToString and
+            read "WindowPreset { Name..." while the open list looked correct.
+        -->
+        <DataTemplate x:Key="Template.WindowPreset">
+            <TextBlock Text="{Binding Name}" />
+        </DataTemplate>
     </Window.Resources>
 
     <Grid>
@@ -63,7 +73,7 @@
                           Margin="0,0,16,0"
                           Style="{StaticResource Style.ComboBox}"
                           ItemsSource="{x:Static windowing:WindowPreset.All}"
-                          DisplayMemberPath="Name"
+                          ItemTemplate="{StaticResource Template.WindowPreset}"
                           SelectedItem="{Binding SelectedPreset}" />
 
                 <TextBlock DockPanel.Dock="Right"

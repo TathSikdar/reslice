@@ -1,6 +1,7 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using InterviewTrea.Core.Geometry;
@@ -41,6 +42,12 @@ public sealed partial class MainViewModel : ObservableObject
             new ViewportViewModel(PlaneOrientation.Sagittal, isSlab: false),
             new ViewportViewModel(PlaneOrientation.Axial, isSlab: true),
         ];
+
+        // The window's field initializer assigns the backing field directly, so it never
+        // passes through OnWindowChanged and the dropdown starts out disagreeing with the
+        // window actually on screen. Naming it once here is what makes that hook the only
+        // rule afterwards, rather than a second copy of the default living in the field.
+        SelectedPreset = WindowPreset.All.FirstOrDefault(candidate => candidate.Window == Window);
     }
 
     /// <summary>The 2x2 layout, in reading order (FR-201).</summary>
@@ -77,10 +84,12 @@ public sealed partial class MainViewModel : ObservableObject
     {
         Lut.Rebuild(value);
 
-        if (SelectedPreset is WindowPreset preset && preset.Window != value)
-        {
-            SelectedPreset = null;
-        }
+        // The dropdown reflects the window rather than driving it. A right-drag that lands
+        // exactly on a preset's numbers names it, one that leaves blanks the box, and the
+        // window a series arrives with is named if it happens to be one of the five. The
+        // assignment cannot recurse: OnSelectedPresetChanged sets Window back to a value it
+        // already holds, so SetProperty finds no change and raises nothing.
+        SelectedPreset = WindowPreset.All.FirstOrDefault(candidate => candidate.Window == value);
 
         RefreshViewports();
     }
