@@ -61,6 +61,15 @@
                 <Canvas x:Name="Annotations" />
             </Canvas>
 
+            <!--
+                FR-401 to FR-404 readouts. Outside the transform, unlike the outlines they
+                belong to: text that scaled with the image would be unreadable at one zoom
+                and cover the anatomy at another. Each label is placed by transforming its
+                measurement's own pixel coordinates into the pane, so it tracks the shape
+                without being inside it.
+            -->
+            <Canvas x:Name="Readouts" IsHitTestVisible="False" />
+
             <!-- FR-204. Outside the transform, so they stay pinned to the pane. -->
             <TextBlock Text="{Binding TopMarker}" Style="{StaticResource Style.Marker}"
                        HorizontalAlignment="Center" VerticalAlignment="Top" />

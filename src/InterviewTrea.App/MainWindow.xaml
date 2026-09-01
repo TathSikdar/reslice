@@ -5,7 +5,8 @@
         x:Class="InterviewTrea.App.MainWindow"
         Title="InterviewTrea"
         Height="900" Width="1300"
-        Background="{StaticResource Brush.Chrome}">
+        Background="{StaticResource Brush.Chrome}"
+        KeyDown="OnKeyDown">
 
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
@@ -71,6 +72,13 @@
                           Style="{StaticResource Style.ComboBox}"
                           ItemsSource="{Binding MeasurementTools, RelativeSource={RelativeSource AncestorType=Window}}"
                           SelectedItem="{Binding Tool}" />
+
+                <!-- FR-407. Individual delete is hovering a measurement and pressing Delete. -->
+                <Button DockPanel.Dock="Left"
+                        Content="Clear"
+                        Margin="8,0,0,0"
+                        Style="{StaticResource Style.Button}"
+                        Click="OnClearMeasurements" />
 
                 <!-- FR-207. Thickness is Shift+wheel over the slab pane, shown in its overlay. -->
                 <ComboBox DockPanel.Dock="Right"

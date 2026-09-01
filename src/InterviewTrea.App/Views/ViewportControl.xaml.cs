@@ -174,6 +174,12 @@ public partial class ViewportControl : UserControl
                 UpdateTransform();
                 break;
 
+            // FR-407. Only the outlines change, and only their weight, so the image and
+            // the transform are left alone.
+            case nameof(MainViewModel.Hovered):
+                DrawMeasurements();
+                break;
+
             // The slab settings leave the plane alone and change only what is projected
             // through it, so the pane that draws a slab redraws and the other three have
             // nothing to do.
@@ -405,8 +411,10 @@ public partial class ViewportControl : UserControl
     private void DrawMeasurements()
     {
         Annotations.Children.Clear();
+        Readouts.Children.Clear();
 
         if (Shell is not MainViewModel shell ||
+            shell.Volume is not Volume volume ||
             DataContext is not ViewportViewModel viewport ||
             viewport.IsSlab ||
             viewport.Plane is not ReslicePlane plane)
@@ -424,7 +432,7 @@ public partial class ViewportControl : UserControl
         {
             if (measurement.IsVisibleOn(plane, tolerance))
             {
-                Draw(measurement, plane, thickness);
+                Draw(measurement, plane, thickness, volume, ReferenceEquals(measurement, shell.Hovered));
             }
         }
 
@@ -432,7 +440,7 @@ public partial class ViewportControl : UserControl
         // this pane, right now.
         if (pending is Measurement drawing)
         {
-            Draw(drawing, plane, thickness);
+            Draw(drawing, plane, thickness, volume, hovered: false);
         }
     }
 
@@ -444,7 +452,8 @@ public partial class ViewportControl : UserControl
     /// frame it was made in, and that frame's axes are the pane's own - so "across" and
     /// "down" in the measurement are the pixel x and y here.
     /// </remarks>
-    private void Draw(Measurement measurement, ReslicePlane plane, double thickness)
+    private void Draw(
+        Measurement measurement, ReslicePlane plane, double thickness, Volume volume, bool hovered)
     {
         (double startColumn, double startRow) = plane.ToPixel(measurement.Start);
         (double endColumn, double endRow) = plane.ToPixel(measurement.End);
@@ -465,8 +474,90 @@ public partial class ViewportControl : UserControl
         }
 
         shape.Stroke = MeasurementBrush;
-        shape.StrokeThickness = thickness;
+
+        // The hovered one is drawn heavier, which is the whole of the FR-407 affordance:
+        // it says which measurement the Delete key would take without adding a control,
+        // a selection colour or a mode to be in.
+        shape.StrokeThickness = hovered ? thickness * 2 : thickness;
+
+        // Not a colour: a hit-test surface. A 1.5-pixel outline is far too fine to point
+        // at, so the interior of a region and a fat invisible line under a distance are
+        // what the pointer actually catches.
+        if (shape is Line)
+        {
+            Annotations.Children.Add(new Line
+            {
+                X1 = startColumn,
+                Y1 = startRow,
+                X2 = endColumn,
+                Y2 = endRow,
+                Stroke = Brushes.Transparent,
+                StrokeThickness = HitPixels / Math.Max(ViewTransform.Matrix.M11, 1e-9),
+                Tag = measurement,
+            });
+        }
+        else
+        {
+            shape.Fill = Brushes.Transparent;
+        }
+
+        shape.Tag = measurement;
         Annotations.Children.Add(shape);
+        Label(measurement, volume, Math.Max(startColumn, endColumn), Math.Min(startRow, endRow));
+    }
+
+    /// <summary>
+    /// Puts a measurement's numbers beside it: length for a distance, area and the four
+    /// FR-403 statistics for a region.
+    /// </summary>
+    /// <remarks>
+    /// Recomputed on every redraw rather than cached on the measurement. A region's
+    /// statistics are a function of the voxels under it, and nothing here is expensive
+    /// enough - a few thousand samples - to be worth a cache that would have to be
+    /// invalidated when a new series is loaded.
+    /// </remarks>
+    private void Label(Measurement measurement, Volume volume, double column, double row)
+    {
+        Point anchor = ViewTransform.Matrix.Transform(new Point(column, row));
+
+        TextBlock label = new()
+        {
+            Text = Readout(measurement, volume),
+            Style = TryFindResource("Style.Measurement") as Style,
+        };
+
+        Canvas.SetLeft(label, anchor.X + LabelOffsetPixels);
+        Canvas.SetTop(label, anchor.Y);
+        Readouts.Children.Add(label);
+    }
+
+    /// <summary>
+    /// One decimal on the millimetres and on the mean, none on the extremes. A distance
+    /// read off a 0.7 mm grid is not good to a hundredth of a millimetre, and a Hounsfield
+    /// value is an integer in the data - printing more digits than the measurement supports
+    /// invites the numbers to be trusted further than they should be.
+    /// </summary>
+    private static string Readout(Measurement measurement, Volume volume)
+    {
+        if (measurement.Kind == MeasurementKind.Distance)
+        {
+            return string.Create(
+                CultureInfo.InvariantCulture, $"{measurement.LengthMillimetres:0.0} mm");
+        }
+
+        string area = string.Create(
+            CultureInfo.InvariantCulture, $"{measurement.AreaSquareMillimetres:0.0} mm²");
+
+        RoiStatistics statistics = RoiStatistics.Compute(measurement, volume);
+
+        // A region can be dragged out entirely off the end of the data, and a mean of
+        // nothing is not zero. The area is still true, so it is still shown.
+        return statistics.SampleCount == 0
+            ? area
+            : area + string.Create(
+                CultureInfo.InvariantCulture,
+                $"\n{statistics.MeanHounsfield:0.0} ± {statistics.StandardDeviationHounsfield:0.0} HU"
+                + $"\n{statistics.MinimumHounsfield} .. {statistics.MaximumHounsfield} HU");
     }
 
     private Brush? MeasurementBrush => TryFindResource("Brush.Accent") as Brush;
@@ -474,8 +565,33 @@ public partial class ViewportControl : UserControl
     private double MeasurementThickness =>
         TryFindResource("Size.Measurement") is double value ? value : 1.0;
 
+    // How close to an outline counts as pointing at it, and how far a label sits from the
+    // shape it belongs to. Both in screen pixels, both calibration knobs: they depend on
+    // pointer precision and display density, not on any geometry.
+    private const double HitPixels = 8.0;
+    private const double LabelOffsetPixels = 6.0;
+
+    /// <summary>
+    /// FR-407. The measurement under the pointer, found by asking WPF what it hit rather
+    /// than by re-deriving the geometry: the shapes are already on screen in the right
+    /// place, and a second copy of the outline arithmetic here would be one more thing to
+    /// keep in step with the first.
+    /// </summary>
+    private Measurement? MeasurementUnder(Point mousePosition) =>
+        Annotations.InputHitTest(Host.TranslatePoint(mousePosition, Annotations)) is FrameworkElement hit
+            ? hit.Tag as Measurement
+            : null;
+
     /// <summary>Turns a mouse position into a patient-space point, or null if there is no plane.</summary>
-    private void OnMouseLeave(object sender, MouseEventArgs e) => HoverLabel = string.Empty;
+    private void OnMouseLeave(object sender, MouseEventArgs e)
+    {
+        HoverLabel = string.Empty;
+
+        if (Shell is MainViewModel shell)
+        {
+            shell.Hovered = null;
+        }
+    }
 
     /// <summary>FR-405. The voxel value under the pointer, formatted, or empty.</summary>
     /// <remarks>
@@ -621,6 +737,7 @@ public partial class ViewportControl : UserControl
             Point hover = e.GetPosition(Host);
             Host.Cursor = ArmGrabAngle(hover) is null ? null : Cursors.Hand;
             HoverLabel = HounsfieldUnder(hover);
+            shell.Hovered = MeasurementUnder(hover);
             return;
         }
 

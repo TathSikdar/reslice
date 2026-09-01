@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using InterviewTrea.App.ViewModels;
 using InterviewTrea.App.Views;
 using InterviewTrea.Rendering.Reslicing;
@@ -74,6 +75,23 @@ public partial class MainWindow : Window
             Grid.SetColumnSpan(pane, isMaximized ? 2 : 1);
         }
     }
+
+    /// <summary>
+    /// FR-407. Delete removes the measurement under the pointer. Handled on the window
+    /// rather than on a viewport so that no pane has to hold keyboard focus for it to work,
+    /// which would mean focus following the mouse across four panes and back to the toolbar.
+    /// </summary>
+    private void OnKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Delete && viewModel.Hovered is not null)
+        {
+            viewModel.DeleteHovered();
+            e.Handled = true;
+        }
+    }
+
+    private void OnClearMeasurements(object sender, RoutedEventArgs e) =>
+        viewModel.Measurements.Clear();
 
     private async void OnOpenFolder(object sender, RoutedEventArgs e)
     {

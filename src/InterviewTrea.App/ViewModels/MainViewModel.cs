@@ -219,6 +219,30 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private MeasurementTool tool;
 
+    /// <summary>
+    /// FR-407. The measurement the pointer is over, which is the one the Delete key
+    /// removes.
+    /// </summary>
+    /// <remarks>
+    /// Held here rather than in the pane that detected it because the key is handled by the
+    /// window: a viewport would have to hold keyboard focus to see it, and focus would then
+    /// have to follow the mouse across four panes and back out to the toolbar. Only one
+    /// measurement can be hovered at a time however many panes are showing it, which this
+    /// gets for free and a flag per pane would not.
+    /// </remarks>
+    [ObservableProperty]
+    private Measurement? hovered;
+
+    /// <summary>FR-407. Removes the hovered measurement, if there is one.</summary>
+    public void DeleteHovered()
+    {
+        if (Hovered is Measurement measurement)
+        {
+            Measurements.Remove(measurement);
+            Hovered = null;
+        }
+    }
+
     /// <summary>The pane filling the window on its own, or null for the 2x2 grid (FR-203).</summary>
     [ObservableProperty]
     private ViewportViewModel? maximized;

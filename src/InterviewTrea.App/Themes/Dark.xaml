@@ -139,6 +139,18 @@
         <Setter Property="Effect" Value="{StaticResource Effect.TextHalo}" />
     </Style>
 
+    <!--
+        Measurement readouts. The accent colour, because a measurement is the one thing on
+        screen the user put there themselves, and the same halo as the overlays so a number
+        stays legible over both 700 HU bone and black air.
+    -->
+    <Style x:Key="Style.Measurement" TargetType="TextBlock">
+        <Setter Property="Foreground" Value="{StaticResource Brush.Accent}" />
+        <Setter Property="FontFamily" Value="{StaticResource Font.Numeric}" />
+        <Setter Property="FontSize" Value="{StaticResource Size.Text.Marker}" />
+        <Setter Property="Effect" Value="{StaticResource Effect.TextHalo}" />
+    </Style>
+
     <Style x:Key="Style.ComboBoxItem" TargetType="ComboBoxItem">
         <Setter Property="Foreground" Value="{StaticResource Brush.Text.Primary}" />
         <Setter Property="Background" Value="Transparent" />
