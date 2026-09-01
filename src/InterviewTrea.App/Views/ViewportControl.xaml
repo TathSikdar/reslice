@@ -23,7 +23,8 @@
             MouseWheel="OnMouseWheel"
             MouseDown="OnMouseDown"
             MouseMove="OnMouseMove"
-            MouseUp="OnMouseUp">
+            MouseUp="OnMouseUp"
+            MouseLeave="OnMouseLeave">
 
         <Grid>
             <!--
@@ -65,6 +66,12 @@
                        Style="{StaticResource Style.Overlay}"
                        Foreground="{Binding BorderBrushKey, Converter={StaticResource ResourceKey}}"
                        HorizontalAlignment="Left" VerticalAlignment="Top"
+                       Margin="{StaticResource Thickness.Overlay}" />
+
+            <!-- FR-405. Top right, clear of the four edge markers and of FR-205's block. -->
+            <TextBlock Text="{Binding HoverLabel, ElementName=Root}"
+                       Style="{StaticResource Style.Overlay}"
+                       HorizontalAlignment="Right" VerticalAlignment="Top"
                        Margin="{StaticResource Thickness.Overlay}" />
 
             <!-- FR-205: position, window and zoom. DI-1: nothing identifying the patient. -->

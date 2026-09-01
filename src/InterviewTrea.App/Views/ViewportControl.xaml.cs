@@ -87,6 +87,29 @@ public partial class ViewportControl : UserControl
 
     public static readonly DependencyProperty ZoomLabelProperty = ZoomLabelPropertyKey.DependencyProperty;
 
+    /// <summary>
+    /// FR-405. The Hounsfield value of the voxel under the pointer, or empty when there is
+    /// no voxel there.
+    /// </summary>
+    /// <remarks>
+    /// Nearest-neighbour, deliberately: this is the number a user reads off a suspicious
+    /// pixel and then expects to see inside the mean of an ROI drawn round it, so it has to
+    /// be sampled the same way <c>RoiStatistics</c> samples. A trilinear readout would
+    /// report values that exist nowhere in the data and would disagree with the statistics
+    /// by a few HU on every edge.
+    /// </remarks>
+    public string HoverLabel
+    {
+        get => (string)GetValue(HoverLabelProperty);
+        private set => SetValue(HoverLabelPropertyKey, value);
+    }
+
+    private static readonly DependencyPropertyKey HoverLabelPropertyKey =
+        DependencyProperty.RegisterReadOnly(
+            nameof(HoverLabel), typeof(string), typeof(ViewportControl), new PropertyMetadata(string.Empty));
+
+    public static readonly DependencyProperty HoverLabelProperty = HoverLabelPropertyKey.DependencyProperty;
+
     private static void OnShellChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     {
         ViewportControl control = (ViewportControl)d;
@@ -358,6 +381,35 @@ public partial class ViewportControl : UserControl
         TryFindResource("Size.Crosshair") is double value ? value : 1.0;
 
     /// <summary>Turns a mouse position into a patient-space point, or null if there is no plane.</summary>
+    private void OnMouseLeave(object sender, MouseEventArgs e) => HoverLabel = string.Empty;
+
+    /// <summary>FR-405. The voxel value under the pointer, formatted, or empty.</summary>
+    /// <remarks>
+    /// Empty on the slab pane, because there is no single voxel under the cursor there: the
+    /// displayed pixel is a projection through a thickness, and quoting the value on the
+    /// centre plane would put a number on screen that does not belong to the pixel it sits
+    /// on. Empty off the end of the data too, rather than <see cref="Volume.OutsideValue"/>
+    /// - that constant is a rendering convenience so the edge of the volume draws dark, and
+    /// no scanner ever recorded it.
+    /// </remarks>
+    private string HounsfieldUnder(Point mousePosition)
+    {
+        if (DataContext is not ViewportViewModel viewport || viewport.IsSlab ||
+            Shell?.Volume is not Volume volume ||
+            ToPatient(mousePosition) is not Point3D patient)
+        {
+            return string.Empty;
+        }
+
+        Point3D voxel = volume.PatientToVoxel.Transform(patient);
+
+        return volume.ContainsContinuous(voxel.X, voxel.Y, voxel.Z)
+            ? string.Create(
+                CultureInfo.InvariantCulture,
+                $"{volume.SampleNearest(voxel.X, voxel.Y, voxel.Z),5} HU")
+            : string.Empty;
+    }
+
     private Point3D? ToPatient(Point mousePosition)
     {
         if (DataContext is not ViewportViewModel viewport || viewport.Plane is not ReslicePlane plane)
@@ -472,11 +524,14 @@ public partial class ViewportControl : UserControl
         {
             // Hover affordance, not a control: without it the arms look exactly like the
             // lines they were before FR-307 and the rotation is undiscoverable.
-            Host.Cursor = ArmGrabAngle(e.GetPosition(Host)) is null ? null : Cursors.Hand;
+            Point hover = e.GetPosition(Host);
+            Host.Cursor = ArmGrabAngle(hover) is null ? null : Cursors.Hand;
+            HoverLabel = HounsfieldUnder(hover);
             return;
         }
 
         Point current = e.GetPosition(Host);
+        HoverLabel = HounsfieldUnder(current);
         Vector delta = current - lastMousePosition;
         lastMousePosition = current;
 
