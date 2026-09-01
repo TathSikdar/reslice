@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\InterviewTrea.Core\InterviewTrea.Core.csproj" />
+  </ItemGroup>
+
+</Project>
