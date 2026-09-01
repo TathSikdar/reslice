@@ -1,0 +1,28 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    # windows-latest, not ubuntu: Iteration 2 adds InterviewTrea.App on
+    # net8.0-windows with UseWPF, which will not build elsewhere. Choosing the
+    # target platform now avoids a CI migration later.
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          # SDK version comes from global.json so CI and dev machines agree.
+          global-json-file: global.json
+
+      - run: dotnet restore
+
+      - run: dotnet build --no-restore -warnaserror
+
+      - run: dotnet test --no-build --verbosity normal

@@ -1,0 +1,21 @@
+<Project>
+
+  <!--
+    NFR-301: no DICOM, rendering, or geometry code may reference System.Windows.*.
+    This is what actually enforces it. A project reference cannot stop someone writing
+    "using System.Windows;" - but targeting plain net8.0 rather than net8.0-windows
+    means those types do not exist in the compilation at all.
+
+    InterviewTrea.App (Iteration 2) overrides this with net8.0-windows + UseWPF.
+    It is the only project permitted to.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+  </PropertyGroup>
+
+</Project>

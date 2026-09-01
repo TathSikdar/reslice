@@ -1,0 +1,22 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "dotnet format --verify-no-changes --severity warn || dotnet format"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          { "type": "command", "command": "dotnet build -warnaserror && dotnet test --filter Category!=Performance" }
+        ]
+      }
+    ]
+  }
+}

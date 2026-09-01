@@ -1,0 +1,21 @@
+# Build output
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+artifacts/
+*.user
+
+# IDE
+.vs/
+.idea/
+*.suo
+
+# Test / benchmark output
+[Tt]est[Rr]esult*/
+BenchmarkDotNet.Artifacts/
+coverage*.xml
+*.coverage
+
+# DQ-1 / DQ-3: DICOM test data is never committed.
+data/
