@@ -318,4 +318,108 @@ public sealed class ReslicePlaneTests
         tilted.Height.Should().Be((int)Math.Ceiling(columnExtent / PixelSize) + 1);
         tilted.Height.Should().Be(122);
     }
+
+    // ---- FR-307: the crosshair arms, which are where the other planes cut this one ----
+
+    /// <summary>
+    /// Two planes meet along the cross product of their normals. Whatever else that
+    /// direction is, it has to lie in both planes, or the line drawn for it is not on
+    /// either of them.
+    /// </summary>
+    [Fact]
+    public void TheIntersectionOfTwoPlanesLiesInBothOfThem()
+    {
+        Volume volume = Chest();
+        ReslicePlane axial = Plane(PlaneOrientation.Axial);
+
+        // A coronal plane turned 30 degrees about the axial normal: the state a drag in
+        // the axial pane leaves behind.
+        (Vector3D row, Vector3D column) = ReslicePlane.DisplayAxes(PlaneOrientation.Coronal);
+        ReslicePlane coronal = ReslicePlane.Through(
+            volume,
+            (row.RotatedAbout(Vector3D.UnitZ, Math.PI / 6), column.RotatedAbout(Vector3D.UnitZ, Math.PI / 6)),
+            Point3D.Origin,
+            PixelSize);
+
+        Vector3D along = axial.Normal.Cross(coronal.Normal);
+
+        along.Dot(axial.Normal).Should().BeApproximately(0, 1e-12);
+        along.Dot(coronal.Normal).Should().BeApproximately(0, 1e-12);
+    }
+
+    /// <summary>
+    /// The arm has to follow the cursor exactly, not merely in the same direction. Turning
+    /// the coronal plane by 30 degrees about the axial normal must turn its line in the
+    /// axial pane by 30 degrees too - anything else and the line lags or leads the mouse,
+    /// which makes the gesture unusable long before it makes the geometry wrong.
+    /// </summary>
+    /// <remarks>
+    /// Derived rather than observed. The axial normal is +Z and the coronal normal starts
+    /// at +Y, so the two planes meet along (0,0,1) x (0,1,0) = (-1,0,0). Turning the
+    /// coronal normal 30 degrees about +Z sends +Y to (-sin30, cos30, 0), and
+    /// (0,0,1) x (-0.5, sqrt(3)/2, 0) = (-sqrt(3)/2, -0.5, 0) - which is exactly (-1,0,0)
+    /// turned by the same 30 degrees.
+    /// </remarks>
+    [Fact]
+    public void RotatingAPlaneTurnsItsCrosshairArmByTheSameAngle()
+    {
+        Volume volume = Chest();
+        ReslicePlane axial = Plane(PlaneOrientation.Axial);
+        (Vector3D row, Vector3D column) = ReslicePlane.DisplayAxes(PlaneOrientation.Coronal);
+
+        Vector3D before = axial.Normal.Cross(row.Cross(column));
+        before.ShouldBeApproximately(new Vector3D(-1, 0, 0));
+
+        ReslicePlane turned = ReslicePlane.Through(
+            volume,
+            (row.RotatedAbout(Vector3D.UnitZ, Math.PI / 6), column.RotatedAbout(Vector3D.UnitZ, Math.PI / 6)),
+            Point3D.Origin,
+            PixelSize);
+
+        Vector3D after = axial.Normal.Cross(turned.Normal);
+
+        after.ShouldBeApproximately(new Vector3D(-Math.Sqrt(3) / 2, -0.5, 0));
+        after.ShouldBeApproximately(before.RotatedAbout(Vector3D.UnitZ, Math.PI / 6));
+    }
+
+    /// <summary>
+    /// The rule the whole oblique model rests on: turning the two planes that are not the
+    /// one being dragged, both by the same angle about its normal, leaves all three normals
+    /// mutually perpendicular. If this failed, the frame would shear a little on every drag
+    /// and the views would stop being orthogonal without ever looking broken.
+    /// </summary>
+    [Fact]
+    public void TurningTheOtherTwoPlanesKeepsTheTriadOrthogonal()
+    {
+        Vector3D axis = Vector3D.UnitZ;
+        (Vector3D Row, Vector3D Column)[] axes =
+        [
+            ReslicePlane.DisplayAxes(PlaneOrientation.Axial),
+            ReslicePlane.DisplayAxes(PlaneOrientation.Coronal),
+            ReslicePlane.DisplayAxes(PlaneOrientation.Sagittal),
+        ];
+
+        // Angles that do not divide evenly into a turn, so nothing lands back on an axis
+        // by luck after the last one.
+        foreach (double radians in new[] { 0.31, -0.77, 1.4, 0.05, -2.2 })
+        {
+            for (int i = 1; i < axes.Length; i++)
+            {
+                axes[i] = (
+                    axes[i].Row.RotatedAbout(axis, radians),
+                    axes[i].Column.RotatedAbout(axis, radians));
+            }
+        }
+
+        Vector3D[] normals = [.. Array.ConvertAll(axes, a => a.Row.Cross(a.Column))];
+
+        normals[0].Dot(normals[1]).Should().BeApproximately(0, 1e-12);
+        normals[1].Dot(normals[2]).Should().BeApproximately(0, 1e-12);
+        normals[2].Dot(normals[0]).Should().BeApproximately(0, 1e-12);
+
+        foreach (Vector3D normal in normals)
+        {
+            normal.Length.Should().BeApproximately(1.0, 1e-12);
+        }
+    }
 }

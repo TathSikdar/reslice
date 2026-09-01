@@ -53,6 +53,97 @@ public sealed partial class MainViewModel : ObservableObject
     /// <summary>The 2x2 layout, in reading order (FR-201).</summary>
     public IReadOnlyList<ViewportViewModel> Viewports { get; }
 
+    /// <summary>
+    /// The row and column axes of each orientation's current plane, indexed by
+    /// <see cref="PlaneOrientation"/>. This is the whole of the oblique state (FR-307):
+    /// there is no angle, no rotation matrix and no history, only where the three frames
+    /// currently point.
+    /// </summary>
+    /// <remarks>
+    /// Keyed by orientation rather than held per pane, because two panes are axial - the
+    /// MPR view and the MIP slab. Per-pane axes would let the slab drift away from the thin
+    /// view it is supposed to be a thick version of, which is a bug you would only notice
+    /// after rotating, and only by looking carefully.
+    /// </remarks>
+    private readonly (Vector3D Row, Vector3D Column)[] axes =
+    [
+        ReslicePlane.DisplayAxes(PlaneOrientation.Axial),
+        ReslicePlane.DisplayAxes(PlaneOrientation.Coronal),
+        ReslicePlane.DisplayAxes(PlaneOrientation.Sagittal),
+    ];
+
+    /// <summary>
+    /// Bumped on every rotation. A pane whose own plane did not move still has to redraw
+    /// its crosshair, because the lines in it are where the <em>other</em> planes cut
+    /// through, and those turned. Without this the pane you are dragging in - the one pane
+    /// guaranteed not to get a Plane change - would hold stale arms under the cursor.
+    /// </summary>
+    [ObservableProperty]
+    private int axesVersion;
+
+    public (Vector3D Row, Vector3D Column) AxesFor(PlaneOrientation orientation) =>
+        axes[(int)orientation];
+
+    /// <summary>Unit normal of an orientation's current plane, oblique or not.</summary>
+    public Vector3D NormalFor(PlaneOrientation orientation)
+    {
+        (Vector3D row, Vector3D column) = axes[(int)orientation];
+        return row.Cross(column);
+    }
+
+    /// <summary>
+    /// FR-307. Turns the two orientations that are not <paramref name="viewport"/>'s about
+    /// that pane's own normal.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Rotating the others and not this one is what makes the gesture feel like taking hold
+    /// of a line. The image under your cursor stays perfectly still while the arms sweep
+    /// across it and the two dependent panes re-cut the volume live. Rotating this pane
+    /// instead would spin the anatomy you are pointing at, and you would lose the feature
+    /// you were aiming for the moment you started to drag.
+    /// </para>
+    /// <para>
+    /// Both other orientations turn by the same angle, so the three normals stay mutually
+    /// perpendicular. A rotation preserves angles, which keeps the two that moved
+    /// perpendicular to each other, and the axis is the third normal, which a rotation
+    /// about it leaves exactly where it was. Nothing here re-orthogonalises the frame, and
+    /// no number of drags can accumulate a shear into it.
+    /// </para>
+    /// </remarks>
+    public void RotateAbout(ViewportViewModel viewport, double radians)
+    {
+        if (Volume is null || radians == 0)
+        {
+            return;
+        }
+
+        Vector3D axis = NormalFor(viewport.Orientation);
+
+        for (int i = 0; i < axes.Length; i++)
+        {
+            if ((PlaneOrientation)i == viewport.Orientation)
+            {
+                continue;
+            }
+
+            (Vector3D row, Vector3D column) = axes[i];
+            axes[i] = (row.RotatedAbout(axis, radians), column.RotatedAbout(axis, radians));
+        }
+
+        RefreshViewports();
+        AxesVersion++;
+    }
+
+    /// <summary>Returns all three frames to the standard anatomical planes.</summary>
+    private void ResetAxes()
+    {
+        for (int i = 0; i < axes.Length; i++)
+        {
+            axes[i] = ReslicePlane.DisplayAxes((PlaneOrientation)i);
+        }
+    }
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasVolume))]
     [NotifyPropertyChangedFor(nameof(ShowStatusBanner))]
@@ -165,7 +256,9 @@ public sealed partial class MainViewModel : ObservableObject
 
         foreach (ViewportViewModel viewport in Viewports)
         {
-            viewport.Update(loaded, Crosshair, PixelSizeMillimetres, SlabMode, SlabThicknessMillimetres);
+            viewport.Update(
+                loaded, AxesFor(viewport.Orientation), Crosshair,
+                PixelSizeMillimetres, SlabMode, SlabThicknessMillimetres);
         }
 
         OnPropertyChanged(nameof(Crosshair));
@@ -214,7 +307,9 @@ public sealed partial class MainViewModel : ObservableObject
         {
             foreach (ViewportViewModel viewport in Viewports)
             {
-                viewport.Update(loaded, Crosshair, PixelSizeMillimetres, SlabMode, SlabThicknessMillimetres);
+                viewport.Update(
+                loaded, AxesFor(viewport.Orientation), Crosshair,
+                PixelSizeMillimetres, SlabMode, SlabThicknessMillimetres);
             }
         }
     }
@@ -271,6 +366,11 @@ public sealed partial class MainViewModel : ObservableObject
             Volume loaded = result.Volume;
             PixelSizeMillimetres = Math.Min(
                 loaded.Spacing.X, Math.Min(loaded.Spacing.Y, loaded.Spacing.Z));
+
+            // A new series opens orthogonal. Carrying the previous study's obliquity over
+            // would present a plane chosen for someone else's anatomy as if it meant
+            // something for this one, and there is no control that would undo it.
+            ResetAxes();
 
             // Order matters: the panes cannot build a plane before there is a volume, and
             // SetCrosshair is what builds them. Assigning Volume first also lets the view

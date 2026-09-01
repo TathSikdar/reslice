@@ -6,6 +6,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Windows.Shapes;
 using InterviewTrea.App.ViewModels;
 using InterviewTrea.Core.Geometry;
 using InterviewTrea.Core.Reslicing;
@@ -46,6 +47,13 @@ public partial class ViewportControl : UserControl
     private Matrix user = Matrix.Identity;
 
     private Point lastMousePosition;
+
+    // Non-null only between grabbing a crosshair arm and letting go, holding the pointer's
+    // angle about the crosshair as of the last move. The drag applies differences rather
+    // than a total, which is what lets the rotation compose in the stored axes instead of
+    // needing an accumulated angle and a plane to measure it from.
+    private double? lastArmAngle;
+
     private MainViewModel? subscribedShell;
     private ViewportViewModel? subscribedViewport;
 
@@ -125,6 +133,13 @@ public partial class ViewportControl : UserControl
 
             case nameof(MainViewModel.Volume):
                 Refresh(resetZoom: true);
+                break;
+
+            // A rotation leaves this pane's own plane alone when the drag started here, so
+            // no Plane change arrives and the image is already correct - but the arms drawn
+            // on it are the other planes and they have moved.
+            case nameof(MainViewModel.AxesVersion):
+                UpdateTransform();
                 break;
 
             // The slab settings leave the plane alone and change only what is projected
@@ -275,7 +290,7 @@ public partial class ViewportControl : UserControl
 
     private void UpdateCrosshair(ReslicePlane plane, double totalScale)
     {
-        if (DataContext is not ViewportViewModel viewport || Shell is null)
+        if (DataContext is not ViewportViewModel viewport || Shell is not MainViewModel shell)
         {
             return;
         }
@@ -287,15 +302,56 @@ public partial class ViewportControl : UserControl
         // is pointing at.
         double thickness = CrosshairThickness / totalScale;
 
-        VerticalLine.X1 = VerticalLine.X2 = column;
-        VerticalLine.Y1 = 0;
-        VerticalLine.Y2 = plane.Height;
-        VerticalLine.StrokeThickness = thickness;
+        // Half-length, drawn from the crosshair outwards in both directions. Since FR-307
+        // the lines are not axis-aligned, so there is no edge coordinate to run to; the
+        // plane's diagonal reaches past every corner from anywhere inside it, and the
+        // pane's own ClipToBounds trims what hangs over.
+        double reach = Math.Sqrt((plane.Width * plane.Width) + (plane.Height * plane.Height));
 
-        HorizontalLine.Y1 = HorizontalLine.Y2 = row;
-        HorizontalLine.X1 = 0;
-        HorizontalLine.X2 = plane.Width;
-        HorizontalLine.StrokeThickness = thickness;
+        Place(VerticalLine, LineDirection(plane, shell.NormalFor(viewport.VerticalLinePlane)));
+        Place(HorizontalLine, LineDirection(plane, shell.NormalFor(viewport.HorizontalLinePlane)));
+
+        void Place(Line line, Vector? direction)
+        {
+            if (direction is not Vector along)
+            {
+                line.Visibility = Visibility.Collapsed;
+                return;
+            }
+
+            line.Visibility = Visibility.Visible;
+            line.X1 = column - (along.X * reach);
+            line.Y1 = row - (along.Y * reach);
+            line.X2 = column + (along.X * reach);
+            line.Y2 = row + (along.Y * reach);
+            line.StrokeThickness = thickness;
+        }
+    }
+
+    /// <summary>
+    /// Where another plane cuts this one, as a unit direction in output pixel coordinates.
+    /// </summary>
+    /// <remarks>
+    /// Two planes meet along the cross product of their normals: that is the one direction
+    /// perpendicular to both normals, and therefore the only direction lying in both
+    /// planes. Dotting it with this plane's two step vectors resolves it into pixel
+    /// coordinates, and normalising afterwards is what removes the millimetres-per-pixel
+    /// factor those steps carry - only the direction is wanted here.
+    ///
+    /// Null when the two normals are parallel. An orthonormal triad cannot produce that,
+    /// so this is a guard against a frame that has gone wrong rather than a case to handle.
+    /// </remarks>
+    private static Vector? LineDirection(ReslicePlane plane, Vector3D otherNormal)
+    {
+        Vector3D along = plane.Normal.Cross(otherNormal);
+        if (along.LengthSquared < 1e-12)
+        {
+            return null;
+        }
+
+        Vector pixel = new(along.Dot(plane.RowStep), along.Dot(plane.ColumnStep));
+        pixel.Normalize();
+        return pixel;
     }
 
     private double CrosshairThickness =>
@@ -328,6 +384,16 @@ public partial class ViewportControl : UserControl
     private const double WidthPerPixel = 4.0;
     private const double CenterPerPixel = 2.0;
     private const double ZoomPerNotch = 1.15;
+
+    // How close to a crosshair arm counts as taking hold of it, and how far from the
+    // crosshair you have to be for that to apply. Both in screen pixels, and both
+    // calibration knobs rather than derived values: what counts as "on the line" depends on
+    // pointer precision and display density, not on any geometry. The dead zone exists
+    // because the two arms cross at the centre, where a grab could not say which one was
+    // meant - and where the gesture almost always intended is moving the crosshair, not
+    // turning it.
+    private const double ArmGrabPixels = 6.0;
+    private const double ArmDeadZonePixels = 24.0;
 
     private void OnMouseWheel(object sender, MouseWheelEventArgs e)
     {
@@ -377,7 +443,15 @@ public partial class ViewportControl : UserControl
         }
         else if (e.ChangedButton == MouseButton.Left)
         {
-            MoveCrosshairTo(lastMousePosition);
+            // FR-307. One button, two gestures, told apart by where the press landed: on an
+            // arm it turns the other planes, anywhere else it moves the crosshair. That
+            // split is why the rotation needs no mode and no control of its own.
+            lastArmAngle = ArmGrabAngle(lastMousePosition);
+
+            if (lastArmAngle is null)
+            {
+                MoveCrosshairTo(lastMousePosition);
+            }
         }
 
         if (e.ChangedButton is MouseButton.Left or MouseButton.Right or MouseButton.Middle)
@@ -389,8 +463,16 @@ public partial class ViewportControl : UserControl
 
     private void OnMouseMove(object sender, MouseEventArgs e)
     {
-        if (!Host.IsMouseCaptured || Shell is not MainViewModel shell)
+        if (Shell is not MainViewModel shell || DataContext is not ViewportViewModel viewport)
         {
+            return;
+        }
+
+        if (!Host.IsMouseCaptured)
+        {
+            // Hover affordance, not a control: without it the arms look exactly like the
+            // lines they were before FR-307 and the rotation is undiscoverable.
+            Host.Cursor = ArmGrabAngle(e.GetPosition(Host)) is null ? null : Cursors.Hand;
             return;
         }
 
@@ -400,9 +482,20 @@ public partial class ViewportControl : UserControl
 
         if (e.LeftButton == MouseButtonState.Pressed)
         {
-            // Dragging keeps setting the crosshair, so the other two panes track the
-            // pointer live. That is the FR-304 demo beat.
-            MoveCrosshairTo(current);
+            if (lastArmAngle is double previous && AngleAboutCrosshair(current) is double angle)
+            {
+                // IEEERemainder folds the difference into [-pi, pi], which matters only at
+                // the one place atan2 wraps: dragging an arm through due west would
+                // otherwise register as very nearly a full turn the other way.
+                shell.RotateAbout(viewport, Math.IEEERemainder(angle - previous, 2 * Math.PI));
+                lastArmAngle = angle;
+            }
+            else
+            {
+                // Dragging keeps setting the crosshair, so the other two panes track the
+                // pointer live. That is the FR-304 demo beat.
+                MoveCrosshairTo(current);
+            }
         }
         else if (e.RightButton == MouseButtonState.Pressed)
         {
@@ -420,6 +513,8 @@ public partial class ViewportControl : UserControl
 
     private void OnMouseUp(object sender, MouseButtonEventArgs e)
     {
+        lastArmAngle = null;
+
         if (Host.IsMouseCaptured)
         {
             Host.ReleaseMouseCapture();
@@ -433,5 +528,88 @@ public partial class ViewportControl : UserControl
         {
             shell.SetCrosshair(patient);
         }
+    }
+
+    /// <summary>
+    /// The pointer's offset from the crosshair, in screen pixels. Null when there is no
+    /// plane to locate the crosshair on.
+    /// </summary>
+    private Vector? OffsetFromCrosshair(Point mousePosition)
+    {
+        if (DataContext is not ViewportViewModel viewport || viewport.Plane is not ReslicePlane plane)
+        {
+            return null;
+        }
+
+        (double column, double row) = plane.ToPixel(viewport.Crosshair);
+        return mousePosition - ViewTransform.Matrix.Transform(new Point(column, row));
+    }
+
+    /// <summary>
+    /// The pointer's angle about the crosshair, which is directly an angle of rotation in
+    /// patient space about this pane's normal.
+    /// </summary>
+    /// <remarks>
+    /// No conversion stands between the two. Turning a plane's row axis towards its column
+    /// axis is a positive rotation about the normal, because the normal is defined as row
+    /// cross column; on screen that is +x towards +y, which is the direction atan2
+    /// increases in. The view matrix is a uniform positive scale and a translation - never
+    /// a rotation, never a flip - so it carries angles through unchanged and the figure
+    /// measured on screen is already the figure to rotate by.
+    /// </remarks>
+    private double? AngleAboutCrosshair(Point mousePosition) =>
+        OffsetFromCrosshair(mousePosition) is Vector offset
+            ? Math.Atan2(offset.Y, offset.X)
+            : null;
+
+    /// <summary>
+    /// The starting angle for a rotation drag when the pointer is on a crosshair arm, or
+    /// null when the press is an ordinary crosshair move.
+    /// </summary>
+    private double? ArmGrabAngle(Point mousePosition)
+    {
+        if (DataContext is not ViewportViewModel viewport ||
+            viewport.Plane is not ReslicePlane plane ||
+            Shell is not MainViewModel shell ||
+            OffsetFromCrosshair(mousePosition) is not Vector offset ||
+            offset.Length < ArmDeadZonePixels)
+        {
+            return null;
+        }
+
+        bool onArm =
+            IsOnArm(offset, LineDirection(plane, shell.NormalFor(viewport.VerticalLinePlane))) ||
+            IsOnArm(offset, LineDirection(plane, shell.NormalFor(viewport.HorizontalLinePlane)));
+
+        return onArm ? Math.Atan2(offset.Y, offset.X) : null;
+    }
+
+    /// <summary>
+    /// Whether an offset from the crosshair lies within the grab tolerance of the line
+    /// through it in <paramref name="pixelDirection"/>.
+    /// </summary>
+    /// <remarks>
+    /// The 2D cross product of the offset with a unit direction is the signed perpendicular
+    /// distance to that line, so its magnitude is the whole test - no projection, no
+    /// clamping, no end points. An infinite line is the right model here rather than a
+    /// segment, because the arms are drawn to the edge of the pane in both directions.
+    /// </remarks>
+    private bool IsOnArm(Vector offset, Vector? pixelDirection)
+    {
+        if (pixelDirection is not Vector direction)
+        {
+            return false;
+        }
+
+        // Into screen pixels, where the tolerance is expressed. Transforming a Vector
+        // applies only the matrix's linear part, so the pan is correctly ignored.
+        Vector onScreen = ViewTransform.Matrix.Transform(direction);
+        if (onScreen.Length < 1e-9)
+        {
+            return false;
+        }
+
+        onScreen.Normalize();
+        return Math.Abs(Vector.CrossProduct(offset, onScreen)) <= ArmGrabPixels;
     }
 }
