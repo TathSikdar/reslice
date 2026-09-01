@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using FluentAssertions;
 using InterviewTrea.Core.Geometry;
 using InterviewTrea.Core.Reslicing;
@@ -212,5 +212,110 @@ public sealed class ReslicePlaneTests
         Action build = () => ReslicePlane.Through(Chest(), PlaneOrientation.Axial, Point3D.Origin, 0);
 
         build.Should().Throw<ArgumentOutOfRangeException>();
+    }
+
+    // ---- FR-307: the same construction on axes handed in rather than looked up ----
+
+    /// <summary>
+    /// The enum overload must be exactly the axes overload with the table applied, or the
+    /// oblique path and the standard path would drift apart and only one of them would be
+    /// under test.
+    /// </summary>
+    [Theory]
+    [InlineData(PlaneOrientation.Axial)]
+    [InlineData(PlaneOrientation.Coronal)]
+    [InlineData(PlaneOrientation.Sagittal)]
+    public void TheAxesOverloadReproducesTheStandardPlane(PlaneOrientation orientation)
+    {
+        Volume volume = Chest();
+        Point3D crosshair = new(3, -4, 5);
+
+        ReslicePlane byEnum = ReslicePlane.Through(volume, orientation, crosshair, PixelSize);
+        ReslicePlane byAxes = ReslicePlane.Through(
+            volume, ReslicePlane.DisplayAxes(orientation), crosshair, PixelSize);
+
+        byAxes.Should().Be(byEnum);
+    }
+
+    /// <summary>
+    /// Rotating a plane's axes about its own normal turns the image within the plane and
+    /// leaves the plane itself alone. On the sagittal plane the two extents differ - 44.1
+    /// mm across y against 93.0 mm down z - so a quarter turn has to swap width and
+    /// height. On a square plane this test would pass while doing nothing.
+    /// </summary>
+    [Fact]
+    public void AQuarterTurnWithinThePlaneSwapsWidthAndHeight()
+    {
+        Volume volume = Chest();
+        (Vector3D row, Vector3D column) = ReslicePlane.DisplayAxes(PlaneOrientation.Sagittal);
+        Vector3D normal = row.Cross(column);
+
+        ReslicePlane upright = ReslicePlane.Through(volume, (row, column), Point3D.Origin, PixelSize);
+        ReslicePlane turned = ReslicePlane.Through(
+            volume,
+            (row.RotatedAbout(normal, Math.PI / 2), column.RotatedAbout(normal, Math.PI / 2)),
+            Point3D.Origin,
+            PixelSize);
+
+        upright.Width.Should().Be(64);
+        upright.Height.Should().Be(134);
+
+        turned.Width.Should().Be(134);
+        turned.Height.Should().Be(64);
+
+        // The plane did not move: only the choice of axes within it did.
+        turned.Normal.ShouldBeApproximately(upright.Normal);
+    }
+
+    /// <summary>
+    /// Rotating the axes about an in-plane axis tilts the plane, and the normal must
+    /// follow by the same rotation. Verified against the normal rotated directly, so the
+    /// two routes to an oblique normal have to agree.
+    /// </summary>
+    [Fact]
+    public void TiltingTheAxesTiltsTheNormalByTheSameRotation()
+    {
+        Volume volume = Chest();
+        (Vector3D row, Vector3D column) = ReslicePlane.DisplayAxes(PlaneOrientation.Axial);
+        double angle = Math.PI / 6;
+
+        ReslicePlane tilted = ReslicePlane.Through(
+            volume,
+            (row.RotatedAbout(row, angle), column.RotatedAbout(row, angle)),
+            Point3D.Origin,
+            PixelSize);
+
+        tilted.Normal.ShouldBeApproximately(Vector3D.UnitZ.RotatedAbout(Vector3D.UnitX, angle));
+
+        // 30 degrees off axial: (0, -sin 30, cos 30).
+        tilted.Normal.ShouldBeApproximately(new Vector3D(0, -0.5, Math.Sqrt(3) / 2));
+    }
+
+    /// <summary>
+    /// A tilted plane cuts a longer chord through the volume, so its grid must grow. The
+    /// row axis here is the rotation axis and is unmoved, which isolates the column: its
+    /// extent is the box's support along (0, cos 30, sin 30), or
+    /// 44.1 cos 30 + 93.0 sin 30 = 84.6917 mm, which is 122 pixels at 0.7 mm.
+    /// </summary>
+    [Fact]
+    public void ATiltedPlaneCoversTheLongerChordThroughTheVolume()
+    {
+        Volume volume = Chest();
+        (Vector3D row, Vector3D column) = ReslicePlane.DisplayAxes(PlaneOrientation.Axial);
+        double angle = Math.PI / 6;
+
+        ReslicePlane tilted = ReslicePlane.Through(
+            volume,
+            (row, column.RotatedAbout(row, angle)),
+            Point3D.Origin,
+            PixelSize);
+
+        double columnExtent =
+            (InPlaneExtentMm * Math.Cos(angle)) + (ThroughPlaneExtentMm * Math.Sin(angle));
+        columnExtent.Should().BeApproximately(84.6917, 1e-4);
+
+        tilted.Width.Should().Be(64);
+        tilted.Height.Should().Be((int)Math.Ceiling(columnExtent / PixelSize) + 1);
+        tilted.Height.Should().Be(122);
     }
 }

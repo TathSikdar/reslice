@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using InterviewTrea.Core.Geometry;
 using InterviewTrea.Core.Volumes;
 
@@ -154,12 +154,36 @@ public sealed record ReslicePlane
         Volume volume,
         PlaneOrientation orientation,
         Point3D crosshair,
+        double pixelSizeMillimetres) =>
+        Through(volume, DisplayAxes(orientation), crosshair, pixelSizeMillimetres);
+
+    /// <summary>
+    /// The same construction on axes given explicitly rather than looked up, which is what
+    /// an oblique plane needs (FR-307).
+    /// </summary>
+    /// <remarks>
+    /// Nothing here knows or cares whether the axes came from the standard table. That is
+    /// the whole of what oblique reslicing costs in this layer: the extent is measured by
+    /// projecting the volume's corners onto whatever two axes arrive, so a rotated plane
+    /// gets a correctly sized footprint by the same arithmetic that sizes an axis-aligned
+    /// one - and a diagonal footprint is genuinely larger, which is why <see cref="Width"/>
+    /// and <see cref="Height"/> change as a plane rotates and a viewport's bitmap has to
+    /// follow them rather than being allocated once per volume.
+    ///
+    /// The axes must be perpendicular unit vectors. That is not checked: they come from
+    /// the standard table or from rotating it, both of which preserve the property, and a
+    /// per-frame guard on a value that cannot go wrong is a cost paid every frame.
+    /// </remarks>
+    public static ReslicePlane Through(
+        Volume volume,
+        (Vector3D Row, Vector3D Column) axes,
+        Point3D crosshair,
         double pixelSizeMillimetres)
     {
         ArgumentNullException.ThrowIfNull(volume);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(pixelSizeMillimetres);
 
-        (Vector3D row, Vector3D column) = DisplayAxes(orientation);
+        (Vector3D row, Vector3D column) = axes;
 
         double minAlongRow = double.PositiveInfinity;
         double maxAlongRow = double.NegativeInfinity;
@@ -194,8 +218,28 @@ public sealed record ReslicePlane
             PixelsSpanning(maxAlongColumn - minAlongColumn, pixelSizeMillimetres));
     }
 
+    /// <summary>
+    /// How close to a whole number of pixels an extent has to be before it is treated as
+    /// exactly that many, in pixels.
+    /// </summary>
+    /// <remarks>
+    /// A calibration knob rather than a constant of the mathematics, and it exists because
+    /// the common case lands precisely on the boundary. An axis-aligned plane over a
+    /// regular grid has an extent that is an exact multiple of the pixel size in real
+    /// arithmetic - 63 steps of 0.7 mm - but 0.7 is not representable in binary, so the
+    /// quotient comes out as 62.99999999999999 with one set of axes and 63.000000000000014
+    /// with another that differs only in the last bits. Without this tolerance, rotating a
+    /// plane by an angle that should change nothing adds a whole row, and the grid size
+    /// depends on how the axes were arrived at rather than on where they point.
+    ///
+    /// 1e-9 pixels is a picometre of image at any spacing a scanner produces, so it cannot
+    /// hide a real difference. It would need revisiting only if the output grid were ever
+    /// made far finer than the voxel spacing.
+    /// </remarks>
+    private const double PixelSnapTolerance = 1e-9;
+
     // +1 because both endpoints are sampled: a 3 mm span at 1 mm spacing needs samples at
     // 0, 1, 2 and 3. Ceiling rather than rounding so the far edge is never cropped.
     private static int PixelsSpanning(double extentMillimetres, double pixelSizeMillimetres) =>
-        (int)Math.Ceiling(extentMillimetres / pixelSizeMillimetres) + 1;
+        (int)Math.Ceiling((extentMillimetres / pixelSizeMillimetres) - PixelSnapTolerance) + 1;
 }

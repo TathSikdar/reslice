@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 
 namespace InterviewTrea.Core.Geometry;
 
@@ -68,6 +68,34 @@ public readonly record struct Vector3D(double X, double Y, double Z)
         }
 
         return new Vector3D(X / length, Y / length, Z / length);
+    }
+
+    /// <summary>
+    /// Rotates this vector about <paramref name="axis"/> by <paramref name="radians"/>,
+    /// right-handed: positive angles turn counter-clockwise seen from the axis tip.
+    /// </summary>
+    /// <remarks>
+    /// Rodrigues' rotation formula. The vector splits into a part along the axis, which a
+    /// rotation about that axis leaves untouched, and a part perpendicular to it, which
+    /// turns within the plane spanned by that part and its cross product with the axis.
+    /// The three terms below are exactly that decomposition.
+    ///
+    /// Written out rather than built as a rotation matrix because the reslice frame stores
+    /// its axes and rotates them in place, so successive drags compose in the stored state
+    /// itself; there is never a need to multiply two rotations together symbolically.
+    ///
+    /// The axis is normalized here rather than demanded of the caller. Callers pass a
+    /// plane normal, which is a cross product of two unit vectors and therefore unit only
+    /// when those two are exactly perpendicular - true analytically, and drifting in the
+    /// last bits after a few hundred rotations.
+    /// </remarks>
+    public Vector3D RotatedAbout(Vector3D axis, double radians)
+    {
+        Vector3D k = axis.Normalized();
+        double cos = Math.Cos(radians);
+        double sin = Math.Sin(radians);
+
+        return Scale(cos) + k.Cross(this).Scale(sin) + k.Scale(k.Dot(this) * (1 - cos));
     }
 
     public Vector3D Scale(double factor) => new(X * factor, Y * factor, Z * factor);
