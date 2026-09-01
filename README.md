@@ -16,16 +16,22 @@ that is the point of the exercise, not an oversight.
 
 ## Status
 
-**Iteration 2 of 5 complete.** A folder of DICOM becomes a validated `Volume`, or a
-clear typed rejection naming the rule that failed; the axial plane renders to screen and
-scrolls, and the window/level presets work. A screenshot goes here when Iteration 3 lands
-the 2x2 MPR layout, which is the one worth showing.
+**Iteration 3 of 5 complete.** A folder of DICOM becomes a validated `Volume`, or a clear
+typed rejection naming the rule that failed. Four viewports show axial, coronal, sagittal
+and a slab projection of the same patient-space point; clicking in any of them moves the
+other three. All three NFR-200 performance targets are met — see
+[docs/performance.md](docs/performance.md).
+
+![The 2x2 MPR layout with linked crosshairs](docs/images/mpr-2x2.png)
+
+*Synthetic phantom, 128 x 128 x 60 at 0.7 x 0.7 x 3.0 mm. No patient data appears anywhere
+in this repository.*
 
 | Iteration | Goal | State |
 |---|---|---|
 | 1 | Folder of DICOM to validated `Volume` | Done, pending the acceptance run against real data |
 | 2 | Single axial viewport, scroll, window/level | Done |
-| 3 | 2x2 MPR with linked crosshairs | Not started |
+| 3 | 2x2 MPR with linked crosshairs | Done |
 | 4 | Measurement and oblique reslicing | Not started |
 | 5 | Plugin platform and polish | Not started |
 
@@ -76,9 +82,13 @@ Dependencies point one way. The rule is enforced by target framework, not by con
 every library targets plain `net8.0`, so WPF types are not merely discouraged in the
 rendering and geometry code, they do not exist in the compilation.
 
-**Controls.** Wheel scrolls slices, right-drag sets window and level, middle-drag pans,
-Ctrl+wheel zooms about the cursor. The only visible chrome is the regulatory banner, the
-Open Folder button, and the window preset dropdown.
+**Controls.** Left-click or drag sets the crosshair and moves the other three views with
+it. Wheel scrolls that view along its own normal, by the volume's real spacing in that
+direction. Right-drag sets window and level, middle-drag pans, Ctrl+wheel zooms about the
+cursor, Shift+wheel over the slab pane sets its thickness, and double-click maximizes a
+pane or restores the grid. The only visible chrome is the regulatory banner, the Open
+Folder button, and the window and slab dropdowns — everything else is a gesture, and every
+value it changes is shown in the pane's own overlay.
 
 ```
 InterviewTrea.Core            depends on nothing
@@ -124,6 +134,7 @@ assistance log along with the gap it exposed.
 - [Architecture decisions](docs/decisions/) — one ADR per genuinely contested call
 - [AI assistance log](docs/ai-assistance-log.md) — including where the assistant was wrong and was caught
 - [Test data setup](docs/data-setup.md)
+- [Performance](docs/performance.md) — the NFR-200 targets, measured, with before and after
 
 ## Known limitations
 
@@ -145,10 +156,14 @@ Stated plainly, because a vague limitations section is worse than none.
   `Blocked` in the traceability matrix rather than assumed.
 - **The peak-memory bound holds by construction, not by measurement.** Slices decode
   directly into the final array with nothing copied, but it has not been profiled.
-- **Axial only so far.** Coronal, sagittal, slab projection and oblique reslicing are
-  Iterations 3 and 4. `Volume.SampleTrilinear` is written and tested but nothing consumes
-  it yet.
+- **Reslicing is axis-aligned so far.** The renderer takes an arbitrary plane and the
+  geometry for a rotated one is already in place, but nothing rotates it yet: oblique
+  reslicing by dragging a crosshair arm (FR-307) is Iteration 4.
 - **A folder with several series loads the largest without asking.** FR-102 wants a
-  prompt; the picker was not in the approved control set for Iteration 2.
+  prompt; the picker is not yet in the approved control set.
+- **One optimization is missing an explanation, not a measurement.** Removing a duplicated
+  bounds test from the slab loop made it 43% slower, reproducibly, and neither of the two
+  hypotheses tested accounts for it. It was reverted and the measurement recorded rather
+  than a guess. See [docs/performance.md](docs/performance.md).
 - No PACS or DICOMweb connectivity, no volume rendering, no curved MPR, no multi-study
   comparison, no non-CT modalities. These are deliberate non-goals, not gaps.
