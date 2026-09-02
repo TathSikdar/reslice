@@ -101,8 +101,7 @@ hardware-counter profile to confirm.
 That work was not done, because the change was worth 43% in the wrong direction and the
 next item on the list was worth 5.8x in the right one. **The change was reverted and the
 guess about why was not committed to the code.** A comment claiming an alignment effect
-that was never verified would be worse than no comment, and the earlier entries in
-`docs/ai-assistance-log.md` are all about exactly that failure mode.
+that was never verified would be worse than no comment.
 
 The general point is the one the whole file exists for: §7.1 lists its techniques "roughly
 in order of payoff", and roughly is doing real work in that sentence. Technique 3 was a

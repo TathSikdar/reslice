@@ -138,7 +138,6 @@ InterviewTrea.sln
 ├── docs/
 │   ├── architecture.md
 │   ├── traceability.md                  # See §9
-│   ├── ai-assistance-log.md             # See §11
 │   └── decisions/                       # ADR-001.md, ADR-002.md, ...
 │
 └── .github/workflows/ci.yml
@@ -475,7 +474,6 @@ Resist the urge to open a window before this works. Everything downstream is bui
 - `docs/architecture.md` with a diagram.
 - ADRs for the three or four decisions you actually agonized over.
 - README with screenshots, setup instructions, and the disclaimer.
-- `docs/ai-assistance-log.md`.
 
 **Done when:** you could hand the repository to a stranger and they could build it, run it, and understand why it is shaped the way it is — and you have run the §14 demo end to end at least three times without notes.
 
@@ -501,27 +499,7 @@ Write four to six short ADRs in `docs/decisions/`. Format: Context, Decision, Co
 
 ADR-005 is worth writing carefully. "I could have resampled tilted volumes, but that's a correctness risk I didn't want to take on unvalidated, so I detect and reject with a clear message" is exactly the reasoning a medical software team wants to hear.
 
-### 11.2 AI assistance log
-
-The posting explicitly asks about GitHub Copilot and Claude Code. Keep `docs/ai-assistance-log.md` with short entries:
-
-```
-## Iteration 1
-- Used Claude Code to scaffold the fo-dicom tag extraction. It initially assumed
-  SpacingBetweenSlices was always present; I replaced this with computed spacing
-  from ImagePositionPatient after finding a series where the tag was absent.
-- Wrote the geometry transforms by hand — wanted to be certain of the conventions.
-- Used Copilot heavily for xUnit boilerplate. High value, low risk.
-
-## Iteration 3
-- Asked Claude Code to optimize the oblique sampler. Suggestion to use Span<T>
-  and hoist bounds checks was correct and gave ~3x. Suggestion to cache samples
-  across frames was wrong for our access pattern; rejected.
-```
-
-The pattern to demonstrate is: used it fluently, verified its output, caught it being wrong. That is a far better answer than either "I didn't use AI" or "I used it for everything."
-
-### 11.3 README structure
+### 11.2 README structure
 
 1. Disclaimer banner
 2. One-paragraph what-and-why
@@ -529,7 +507,7 @@ The pattern to demonstrate is: used it fluently, verified its output, caught it 
 4. Build and run instructions
 5. How to obtain test data (link to TCIA, name the collection)
 6. Architecture summary with the dependency diagram
-7. Links to traceability, ADRs, AI log
+7. Links to traceability and ADRs
 8. Known limitations — be honest and specific; it reads as confidence
 
 ---

@@ -176,8 +176,8 @@ that is what interpolation means, not because that is what the code returned the
 time it ran.
 
 The standing verification discipline is mutation: a green test proves nothing until a
-deliberate break makes it red. Where a mutation survived, that is recorded in the AI
-assistance log along with the gap it exposed.
+deliberate break makes it red. Where a mutation survived, the test that closes the gap it
+exposed was written before moving on.
 
 ## Documents
 
@@ -185,7 +185,6 @@ assistance log along with the gap it exposed.
 - [Phase 2 specification](docs/INTERVIEWTREA-PHASE2-3D-VIEWER.md) — the 3D volume-rendered view
 - [Traceability matrix](docs/traceability.md) — every requirement, its design element, its test
 - [Architecture decisions](docs/decisions/) — one ADR per genuinely contested call
-- [AI assistance log](docs/ai-assistance-log.md) — including where the assistant was wrong and was caught
 - [Architecture](docs/architecture.md) — the layer diagram and the rules that hold it up
 - [Test data setup](docs/data-setup.md)
 - [Performance](docs/performance.md) — the NFR-200 targets, measured, with before and after

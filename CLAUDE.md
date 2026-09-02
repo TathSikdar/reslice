@@ -84,7 +84,6 @@ Implementation: every brush, size, and control style lives in `InterviewTrea.App
 - Conventional commits, with the requirement ID: `feat(dicom): sort slices by IPP projection (FR-103)`.
 - One ADR per genuinely contested decision, in `docs/decisions/ADR-NNN.md`. Context, Decision, Consequences. Half a page.
 - Append to `docs/traceability.md` in the same change that satisfies a requirement, not later.
-- Log notable AI-assistance moments in `docs/ai-assistance-log.md` — especially where you were wrong and I caught it. That file is an interview artifact, so honesty in it is the whole value.
 - `data/` is gitignored. Never commit DICOM.
 
 ## Commands
