@@ -61,6 +61,20 @@ public partial class ViewportControl : UserControl
     // never be counted, exported or deleted while the button is still down.
     private Measurement? pending;
 
+    /// <summary>Which part of a measurement a Move press took hold of (FR-411).</summary>
+    private enum Grab
+    {
+        Whole,
+        Start,
+        End,
+    }
+
+    // Non-null only while a Move drag is under way. It holds the measurement as it was at
+    // the press, not as it is now, so every move recomputes from the original and the
+    // shape cannot accumulate drift over a long drag - the arithmetic is the same whether
+    // the pointer arrives in one step or two hundred.
+    private (int Index, Measurement Original, Grab Grab, Point3D Grabbed)? editing;
+
     private MainViewModel? subscribedShell;
     private ViewportViewModel? subscribedViewport;
 
@@ -503,7 +517,43 @@ public partial class ViewportControl : UserControl
 
         shape.Tag = measurement;
         Annotations.Children.Add(shape);
+
+        // FR-411. Grab handles, drawn only while the Move tool is selected and only on the
+        // measurement under the pointer. A handle on every measurement all the time would
+        // be permanent clutter on the image for a gesture used a few times a session.
+        if (hovered && Shell?.Tool == MeasurementTool.Move)
+        {
+            Handle(measurement, startColumn, startRow);
+            Handle(measurement, endColumn, endRow);
+        }
         Label(measurement, volume, Math.Max(startColumn, endColumn), Math.Min(startRow, endRow));
+    }
+
+    /// <summary>
+    /// FR-411. A small square on one of the two points the creating drag passed through,
+    /// which are the two the Move tool can take hold of individually.
+    /// </summary>
+    /// <remarks>
+    /// Sized in screen pixels and divided back out of the view transform, like every other
+    /// annotation here, so a handle stays the same size to point at however far the image
+    /// is zoomed in. It carries the measurement in its Tag as well, so grabbing a handle
+    /// hit-tests as grabbing the measurement.
+    /// </remarks>
+    private void Handle(Measurement measurement, double column, double row)
+    {
+        double side = HandlePixels / Math.Max(ViewTransform.Matrix.M11, 1e-9);
+
+        Rectangle handle = new()
+        {
+            Width = side,
+            Height = side,
+            Fill = MeasurementBrush,
+            Tag = measurement,
+        };
+
+        Canvas.SetLeft(handle, column - (side / 2));
+        Canvas.SetTop(handle, row - (side / 2));
+        Annotations.Children.Add(handle);
     }
 
     /// <summary>
@@ -576,6 +626,7 @@ public partial class ViewportControl : UserControl
     // pointer precision and display density, not on any geometry.
     private const double HitPixels = 8.0;
     private const double LabelOffsetPixels = 6.0;
+    private const double HandlePixels = 7.0;
 
     /// <summary>
     /// FR-407. The measurement under the pointer, found by asking WPF what it hit rather
@@ -709,7 +760,9 @@ public partial class ViewportControl : UserControl
                 shell.ToggleMaximized(viewport);
             }
         }
-        else if (e.ChangedButton == MouseButton.Left && !TryStartMeasurement(lastMousePosition))
+        else if (e.ChangedButton == MouseButton.Left &&
+            !TryStartEdit(lastMousePosition) &&
+            !TryStartMeasurement(lastMousePosition))
         {
             // FR-307. One button, two gestures, told apart by where the press landed: on an
             // arm it turns the other planes, anywhere else it moves the crosshair. That
@@ -741,9 +794,17 @@ public partial class ViewportControl : UserControl
             // Hover affordance, not a control: without it the arms look exactly like the
             // lines they were before FR-307 and the rotation is undiscoverable.
             Point hover = e.GetPosition(Host);
-            Host.Cursor = ArmGrabAngle(hover) is null ? null : Cursors.Hand;
+            Measurement? under = MeasurementUnder(hover);
+
             HoverLabel = HounsfieldUnder(hover);
-            shell.Hovered = MeasurementUnder(hover);
+            shell.Hovered = under;
+
+            // Three cursors for three things the button would do here. The Move cursor wins
+            // where both apply, because with that tool selected an arm underneath is not
+            // what the press will take.
+            Host.Cursor = shell.Tool == MeasurementTool.Move && under is not null ? Cursors.SizeAll
+                : ArmGrabAngle(hover) is null ? null : Cursors.Hand;
+
             return;
         }
 
@@ -754,7 +815,11 @@ public partial class ViewportControl : UserControl
 
         if (e.LeftButton == MouseButtonState.Pressed)
         {
-            if (pending is Measurement drawing)
+            if (editing is { } edit)
+            {
+                DragEdit(edit, current);
+            }
+            else if (pending is Measurement drawing)
             {
                 if (ToPatient(current) is Point3D patient)
                 {
@@ -794,6 +859,7 @@ public partial class ViewportControl : UserControl
     private void OnMouseUp(object sender, MouseButtonEventArgs e)
     {
         lastArmAngle = null;
+        editing = null;
         CommitMeasurement();
 
         if (Host.IsMouseCaptured)
@@ -801,6 +867,92 @@ public partial class ViewportControl : UserControl
             Host.ReleaseMouseCapture();
             e.Handled = true;
         }
+    }
+
+    /// <summary>
+    /// FR-411. Takes hold of an existing measurement if the Move tool is selected and the
+    /// press landed on one, and reports whether it took the press.
+    /// </summary>
+    /// <remarks>
+    /// Which end, if either, is decided in screen pixels rather than in millimetres,
+    /// because the question being asked is whether a hand landed on a handle - a tolerance
+    /// in patient space would be several handles wide zoomed out and a fraction of one
+    /// zoomed in.
+    /// </remarks>
+    private bool TryStartEdit(Point mousePosition)
+    {
+        if (Shell is not MainViewModel shell ||
+            shell.Tool != MeasurementTool.Move ||
+            DataContext is not ViewportViewModel viewport ||
+            viewport.Plane is not ReslicePlane plane ||
+            MeasurementUnder(mousePosition) is not Measurement target ||
+            ToPatient(mousePosition) is not Point3D grabbed)
+        {
+            return false;
+        }
+
+        (double startColumn, double startRow) = plane.ToPixel(target.Start);
+        (double endColumn, double endRow) = plane.ToPixel(target.End);
+
+        Point start = ViewTransform.Matrix.Transform(new Point(startColumn, startRow));
+        Point end = ViewTransform.Matrix.Transform(new Point(endColumn, endRow));
+
+        Grab grab = (mousePosition - start).Length <= HitPixels ? Grab.Start
+            : (mousePosition - end).Length <= HitPixels ? Grab.End
+            : Grab.Whole;
+
+        editing = (shell.Measurements.IndexOf(target), target, grab, grabbed);
+
+        return true;
+    }
+
+    /// <summary>
+    /// FR-411. Moves or resizes the measurement being dragged, in patient millimetres.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Both the grabbed point and the current one come back through
+    /// <see cref="ReslicePlane.ToPatient"/>, so the difference between them lies in this
+    /// pane's plane by construction. A translation by it therefore cannot push a
+    /// measurement off the slice it belongs to, and the frame - which is what FR-406 tests
+    /// against - needs no adjusting and gets none.
+    /// </para>
+    /// <para>
+    /// Every move is computed from the measurement as it was at the press rather than from
+    /// its current position, so nothing accumulates over the drag. The record is replaced
+    /// in the list rather than mutated, because a measurement is a value; the identifier
+    /// rides along through <c>with</c>, so an edited measurement keeps the number it was
+    /// exported under.
+    /// </para>
+    /// </remarks>
+    private void DragEdit(
+        (int Index, Measurement Original, Grab Grab, Point3D Grabbed) edit, Point mousePosition)
+    {
+        if (Shell is not MainViewModel shell ||
+            edit.Index < 0 || edit.Index >= shell.Measurements.Count ||
+            ToPatient(mousePosition) is not Point3D patient)
+        {
+            return;
+        }
+
+        Vector3D delta = patient - edit.Grabbed;
+
+        Measurement moved = edit.Grab switch
+        {
+            Grab.Start => edit.Original with { Start = patient },
+            Grab.End => edit.Original with { End = patient },
+            _ => edit.Original with
+            {
+                Start = edit.Original.Start + delta,
+                End = edit.Original.End + delta,
+            },
+        };
+
+        shell.Measurements[edit.Index] = moved;
+
+        // After the replacement, not before: swapping the element out drops the old one
+        // from the list, and the view model clears a Hovered that is no longer in it.
+        shell.Hovered = moved;
     }
 
     /// <summary>
@@ -818,7 +970,7 @@ public partial class ViewportControl : UserControl
     private bool TryStartMeasurement(Point mousePosition)
     {
         if (Shell is not MainViewModel shell ||
-            shell.Tool == MeasurementTool.None ||
+            shell.Tool is MeasurementTool.None or MeasurementTool.Move ||
             DataContext is not ViewportViewModel viewport ||
             viewport.IsSlab ||
             ToPatient(mousePosition) is not Point3D patient)

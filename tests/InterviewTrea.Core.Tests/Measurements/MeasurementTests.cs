@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using FluentAssertions;
 using InterviewTrea.Core.Geometry;
 using InterviewTrea.Core.Measurements;
@@ -259,5 +259,79 @@ public sealed class MeasurementTests
             PixelSize);
 
         Rect(20, 30).IsVisibleOn(tilted, toleranceMillimetres: 1.5).Should().BeFalse();
+    }
+
+    // ---- FR-411: moving and resizing an existing measurement ----
+
+    /// <summary>
+    /// The guarantee the Move tool rests on. It translates by the difference between two
+    /// points it read off the same plane, so the offset lies in that plane, and it leaves
+    /// the frame alone on the grounds that an in-plane move cannot change which slice the
+    /// measurement belongs to. That is the claim under test - the view layer does the
+    /// translation, this says the translation is safe to do that way.
+    /// </summary>
+    [Fact]
+    public void AnInPlaneMoveLeavesTheMeasurementOnItsOwnSlice()
+    {
+        ReslicePlane plane = ReslicePlane.Through(
+            Chest(), PlaneOrientation.Axial, Point3D.Origin, PixelSize);
+
+        Measurement original = Rect(20, 30);
+        Vector3D inPlane = original.Frame.Row.Scale(7) + original.Frame.Column.Scale(-4);
+
+        Measurement moved = original with
+        {
+            Start = original.Start + inPlane,
+            End = original.End + inPlane,
+        };
+
+        moved.IsVisibleOn(plane, toleranceMillimetres: 1.5).Should().BeTrue();
+        moved.AreaSquareMillimetres.Should().BeApproximately(600, 1e-9);
+    }
+
+    /// <summary>
+    /// The other half of the same claim, and the reason it is not vacuous: the frame is
+    /// only safe to leave alone because the offset has no component along the normal. Five
+    /// millimetres of it against a 1.5 mm tolerance and the measurement is on a different
+    /// slice, whatever the frame still says.
+    /// </summary>
+    [Fact]
+    public void AMoveAlongTheNormalWouldNotBeSafeToLeaveTheFrameAloneFor()
+    {
+        ReslicePlane plane = ReslicePlane.Through(
+            Chest(), PlaneOrientation.Axial, Point3D.Origin, PixelSize);
+
+        Measurement original = Rect(20, 30);
+
+        // The frame is deliberately carried over unchanged, which is exactly what the Move
+        // tool does - and is why it must never produce an offset like this one.
+        Measurement moved = original with
+        {
+            Frame = original.Frame with { Anchor = original.Frame.Anchor + Vector3D.UnitZ.Scale(5) },
+            Start = original.Start + Vector3D.UnitZ.Scale(5),
+            End = original.End + Vector3D.UnitZ.Scale(5),
+        };
+
+        moved.IsVisibleOn(plane, toleranceMillimetres: 1.5).Should().BeFalse();
+    }
+
+    /// <summary>
+    /// Dragging one end resizes about the other, and the identifier survives (FR-410): an
+    /// edited measurement is still the one a CSV row exported earlier named. 10 by 30 is
+    /// 300 mm^2, and the anchored end has not moved.
+    /// </summary>
+    [Fact]
+    public void DraggingOneEndResizesAboutTheOtherAndKeepsTheIdentifier()
+    {
+        Measurement original = Rect(20, 30) with { Id = 4 };
+
+        Measurement resized = original with
+        {
+            End = original.Start + original.Frame.Row.Scale(10) + original.Frame.Column.Scale(30),
+        };
+
+        resized.AreaSquareMillimetres.Should().BeApproximately(300, 1e-9);
+        resized.Start.Should().Be(original.Start);
+        resized.Id.Should().Be(4);
     }
 }

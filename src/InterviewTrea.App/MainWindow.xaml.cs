@@ -44,7 +44,13 @@ public partial class MainWindow : Window
 
     /// <summary>The FR-401 to FR-404 tool dropdown's items, for the same binding reason.</summary>
     public IReadOnlyList<MeasurementTool> MeasurementTools { get; } =
-        [MeasurementTool.None, MeasurementTool.Distance, MeasurementTool.Ellipse, MeasurementTool.Rectangle];
+    [
+        MeasurementTool.None,
+        MeasurementTool.Move,
+        MeasurementTool.Distance,
+        MeasurementTool.Ellipse,
+        MeasurementTool.Rectangle,
+    ];
 
     /// <summary>Loads a folder without going through the dialog (see App.OnStartup).</summary>
     public Task LoadAsync(string directory) => viewModel.LoadAsync(directory);

@@ -1,4 +1,4 @@
-using InterviewTrea.Core.Measurements;
+﻿using InterviewTrea.Core.Measurements;
 
 namespace InterviewTrea.App.ViewModels;
 
@@ -18,6 +18,12 @@ public enum MeasurementTool
     Distance,
     Ellipse,
     Rectangle,
+
+    /// <summary>
+    /// FR-411. Takes hold of a measurement that already exists rather than making one:
+    /// near an end it drags that end, anywhere else it drags the whole shape.
+    /// </summary>
+    Move,
 }
 
 internal static class MeasurementToolExtensions
