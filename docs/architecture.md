@@ -1,8 +1,8 @@
-# Architecture
+﻿# Architecture
 
 > **RESEARCH AND DEMONSTRATION USE ONLY — NOT A MEDICAL DEVICE. NOT FOR DIAGNOSTIC USE.**
 
-Five libraries and one executable. The shape of the dependency graph is the whole design:
+Three libraries and one executable. The shape of the dependency graph is the whole design:
 every rule below is enforced by something a compiler checks, not by a convention someone
 has to remember.
 
@@ -14,26 +14,19 @@ has to remember.
                         │  geometry · volumes ·         │   depends on nothing
                         │  reslicing · measurements     │
                         └───────────────────────────────┘
-                          ▲          ▲          ▲      ▲
-              ┌───────────┘          │          │      └─────────────┐
-              │                      │          │                    │
-┌─────────────┴──────┐  ┌────────────┴─────┐  ┌─┴──────────────────────────────┐
-│ InterviewTrea      │  │ InterviewTrea    │  │ InterviewTrea.Applications     │
-│        .Dicom      │  │      .Rendering  │  │            .Abstractions       │
-│ fo-dicom lives     │  │ volume → byte[]  │  │ the plugin contract            │
-│ here and nowhere   │  │ never            │  │ IClinicalApplication,          │
-│ else               │  │ System.Windows.* │  │ IApplicationContext,           │
-└─────────┬──────────┘  └────────┬─────────┘  │ IOverlayLayer                  │
-          │                      │            └───────┬────────────────────────┘
-          │                      │                    │
-          │                      │            ┌───────┴────────────────────────┐
-          │                      │            │ InterviewTrea.Applications     │
-          │                      │            │            .Histogram          │
-          │                      │            │ reference app (FR-507)         │
-          │                      │            └───────┬────────────────────────┘
-          │                      │                    │
-          └──────────────┬───────┴────────────────────┘
-                         ▼
+                          ▲                     ▲
+              ┌───────────┘                     └───────────┐
+              │                                             │
+┌─────────────┴──────┐                       ┌──────────────┴───┐
+│ InterviewTrea      │                       │ InterviewTrea    │
+│        .Dicom      │                       │      .Rendering  │
+│ fo-dicom lives     │                       │ volume → byte[]  │
+│ here and nowhere   │                       │ never            │
+│ else               │                       │ System.Windows.* │
+└─────────┬──────────┘                       └────────┬─────────┘
+          │                                           │
+          └──────────────────┬────────────────────────┘
+                             ▼
         ┌────────────────────────────────────┐
         │        InterviewTrea.App           │   net8.0-windows, UseWPF
         │  views · view models · App.xaml.cs │   depends on everything
@@ -62,25 +55,23 @@ would be a change to one project.
 nothing about bitmaps; the WPF layer wraps that buffer in a `WriteableBitmap` and calls
 `WritePixels` once per frame. See [ADR-003](decisions/ADR-003.md).
 
-**The plugin contract depends on Core only.** Everything crossing the seam is a domain
-type — volumes, planes, patient millimetres, packed ARGB colours. An application never
-learns what a viewport, a bitmap or a window is, which is what lets the shell change all
-three without touching a plugin. See [ADR-004](decisions/ADR-004.md).
+**Phase 2 arrives on the same terms.** `InterviewTrea.Rendering3D` will depend on Core
+only and return a `byte[]`, differing from `InterviewTrea.Rendering` in nothing but its
+pixel format — BGRA32 rather than Gray8, because a volume rendering is colour. It is a
+separate project so that work on the 3D path cannot disturb the 2D one, which is the path
+with committed benchmark numbers.
+
+**There is no plugin platform.** One was built and removed; see
+[ADR-004](decisions/ADR-004.md), which records both the decision and its reversal.
 
 ## Composition
 
 `App.xaml.cs` is the only place anything is constructed. It builds a
-`HostApplicationBuilder`, registers the three DICOM services, the series prompt, every
-clinical application, the main view model and the window, and starts the host. There is no
-service locator and no static singleton; a type that needs a collaborator takes it as a
+`HostApplicationBuilder`, registers the three DICOM services, the series prompt, the main
+view model and the window, and starts the host. There is no service locator and no static
+singleton; a type that needs a collaborator takes it as a
 constructor parameter, which is why the load pipeline could be exercised by a console probe
 in Iteration 1, before there was a window to hide it.
-
-Adding a clinical application is one line:
-
-```csharp
-services.AddSingleton<IClinicalApplication, HistogramApplication>();
-```
 
 ## State
 
@@ -119,8 +110,8 @@ which is what NFR-204's own "manual; document your approach" asks for.
 
 ## What is deliberately not here
 
-No volume rendering with transfer functions, no curved MPR, no PACS or DICOMweb
-connectivity, no secondary-capture export, no multi-study comparison, no non-CT modality
-support. These are the Phase 1 §1.4 non-goals, and cutting PACS in particular was a
+No curved MPR, no PACS or DICOMweb connectivity, no secondary-capture export, no
+multi-study comparison, no non-CT modality support, and no plugin platform. These are the
+Phase 1 §1.4 non-goals, and cutting PACS in particular was a
 decision about the demo: it would have introduced a container, a server process and a
 network hop into a ten-minute window where none of it could pay off.

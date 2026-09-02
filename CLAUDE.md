@@ -1,4 +1,4 @@
-# InterviewTrea
+﻿# InterviewTrea
 
 A Windows desktop CT visualization workstation in C#/WPF. Loads a DICOM series, reconstructs a 3D volume, renders synchronized axial/coronal/sagittal MPR plus slab MIP, supports oblique reslicing and patient-space measurements, and hosts pluggable clinical applications.
 
@@ -9,7 +9,7 @@ Independent study project. No affiliation with, endorsement by, or code derived 
 ## Specifications
 
 - `docs/INTERVIEWTREA-PHASE1-VIEWER.md` — the viewer platform. Authoritative for Phase 1.
-- `docs/INTERVIEWTREA-PHASE2-CALCIUM-SCORING.md` — the calcium scoring plugin. Do not start until Phase 1 is complete and its tests are green.
+- `docs/INTERVIEWTREA-PHASE2-3D-VIEWER.md` — the 3D volume-rendered view. Do not start until Phase 1 is complete and its tests are green.
 
 Requirements are numbered (FR-101, NFR-201, RQ-1, DI-3, and so on). Cite the ID in commit messages and in PR descriptions. If a task doesn't map to a requirement, say so before writing code — either we add the requirement or we don't build the thing.
 
@@ -35,7 +35,7 @@ Non-negotiable. These are enforced by project references and I want them to stay
 - `InterviewTrea.Core` depends on nothing. Pure domain — geometry, volumes, measurements.
 - `InterviewTrea.Dicom` depends on Core only. **fo-dicom appears in this project and nowhere else.**
 - `InterviewTrea.Rendering` depends on Core only. Produces `byte[]`. **Must never reference `System.Windows.*`.** The WPF layer wraps the buffer in a `WriteableBitmap`.
-- `InterviewTrea.Applications.Abstractions` depends on Core only. The plugin contract.
+- `InterviewTrea.Rendering3D` (Phase 2) depends on Core only. Returns `byte[]` in BGRA32. Same rule: never `System.Windows.*`.
 - `InterviewTrea.App` depends on everything. Nothing depends on it.
 
 Other standing rules:
@@ -99,7 +99,7 @@ dotnet run -c Release --project tests/InterviewTrea.Benchmarks
 
 ## Don't
 
-- Don't build anything in the Phase 1 §1.4 non-goals list. Volume rendering with transfer functions, curved MPR, PACS/DICOMweb connectivity, secondary-capture export, multi-study comparison, and non-CT modality support are all deliberately out.
+- Don't build anything in the Phase 1 §1.4 non-goals list. Curved MPR, PACS/DICOMweb connectivity, secondary-capture export, multi-study comparison, non-CT modality support, and any plugin or clinical-application platform are all deliberately out. Volume rendering with transfer functions is **Phase 2**, not a non-goal — but it does not start until Phase 1 is green.
 - Don't add NuGet packages without asking.
 - Don't refactor code I haven't reviewed yet.
 - Don't write a "quick fix" that hides a geometry bug. If a number looks wrong, find out why.

@@ -44,7 +44,8 @@ committed to this repository, and no patient identifier is displayed in any view
 | 2 | Single axial viewport, scroll, window/level | Done |
 | 3 | 2x2 MPR with linked crosshairs | Done |
 | 4 | Measurement and oblique reslicing | Done |
-| 5 | Plugin platform and polish | Done |
+| 5 | Export, series picker and polish | Done |
+| 6–7 | 3D volume rendering (Phase 2) | Specified, not started |
 
 The screenshot above is from Iteration 3 and shows the layout before the measurement
 tools and the applications dock existed.
@@ -110,27 +111,26 @@ anywhere else it slides the whole shape. Hovering a measurement thickens it and 
 removes that one; Clear removes them all; Reset returns the frames to the anatomical
 planes and the crosshair to the middle of the volume.
 
-Visible chrome is the regulatory banner, Open Folder, the Applications menu, Reset, the
-Measure dropdown, Clear, the two exports, and the window and slab dropdowns. Everything
-else is a gesture, and every value a gesture changes is shown in the pane's own overlay.
+Zoom has a floor at fit and pan is bounded, so the image cannot be driven off the pane;
+Reset returns both to fit along with the geometry.
+
+Visible chrome is the regulatory banner, Open Folder, Reset, the Measure dropdown, Clear,
+Export CSV, and the PNG export with its target dropdown, plus the window and slab
+dropdowns. Everything else is a gesture, and every value a gesture changes is shown in the
+pane's own overlay.
 
 ```
 InterviewTrea.Core            depends on nothing
         ^
         |-- InterviewTrea.Dicom          Core only. fo-dicom appears here and nowhere else.
         |-- InterviewTrea.Rendering      Core only. Produces byte[]. Never System.Windows.*
-        |-- InterviewTrea.Applications.Abstractions   Core only. The plugin contract.
-                ^
-                |-- InterviewTrea.Applications.Histogram  Abstractions only. Reference app.
-                |
-                |-- InterviewTrea.App    depends on everything. Nothing depends on it.
+        |-- InterviewTrea.App            depends on everything. Nothing depends on it.
 ```
 
 `InterviewTrea.App` is the only project targeting `net8.0-windows`; every other one
 targets plain `net8.0`, which is what makes the rule enforceable rather than aspirational.
-The reference application is the proof: it computes a histogram of the volume and draws a
-marker on every plane without referencing WPF, fo-dicom, a viewport or a bitmap. See
-[docs/architecture.md](docs/architecture.md).
+Phase 2 adds `InterviewTrea.Rendering3D` on the same terms — Core only, returns a `byte[]`.
+See [docs/architecture.md](docs/architecture.md).
 
 Volume storage is a flat `short[]` of Hounsfield units with x varying fastest. A
 512x512x400 chest study is 200 MB, which is what buys the memory budget; `float` would
@@ -157,7 +157,7 @@ assistance log along with the gap it exposed.
 ## Documents
 
 - [Phase 1 specification](docs/INTERVIEWTREA-PHASE1-VIEWER.md) — the viewer platform
-- [Phase 2 specification](docs/INTERVIEWTREA-PHASE2-CALCIUM-SCORING.md) — the calcium scoring plugin
+- [Phase 2 specification](docs/INTERVIEWTREA-PHASE2-3D-VIEWER.md) — the 3D volume-rendered view
 - [Traceability matrix](docs/traceability.md) — every requirement, its design element, its test
 - [Architecture decisions](docs/decisions/) — one ADR per genuinely contested call
 - [AI assistance log](docs/ai-assistance-log.md) — including where the assistant was wrong and was caught
@@ -191,12 +191,10 @@ Stated plainly, because a vague limitations section is worse than none.
   clips to black under any window, but an ROI covering the corners of the field of view
   would average a number that was never a measurement. This matters for Phase 2, not
   for viewing.
-- **A plugin ships a view model, not a view.** The shell finds a tool panel's control by
-  type through a data template it owns, so an application cannot yet bring its own. Making
-  that possible means a plugin shipping a WPF resource dictionary, which is a decision
-  worth taking when there is a second application to justify it.
-- **One application runs at a time.** Two of them contributing tool panels to the same
-  dock is a layout question with no obvious answer, and nothing in either phase needs it.
+- **There is no 3D view yet.** Volume rendering is Phase 2 and is specified but not built.
+  What exists is the slab MIP, which is the same ray march without colour or opacity.
+- **There is no plugin platform.** One was built in Iteration 5 and removed when the scope
+  settled on a viewer and a 3D viewer, because it hosted nothing. It is in the history.
 - **An ROI has grab handles on two corners, not four.** They are the two points the drag
   that created it passed through. The other two are more arithmetic for little gain.
 - **Overlays draw polylines and text and nothing else.** Every kind added to that contract

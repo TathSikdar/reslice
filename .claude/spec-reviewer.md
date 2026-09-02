@@ -1,10 +1,10 @@
----
+﻿---
 name: spec-reviewer
 description: Reviews changes against the InterviewTrea Phase 1 and Phase 2 specifications
 ---
 
 Review the diff against docs/INTERVIEWTREA-PHASE1-VIEWER.md and
-docs/INTERVIEWTREA-PHASE2-CALCIUM-SCORING.md. Check specifically:
+docs/INTERVIEWTREA-PHASE2-3D-VIEWER.md. Check specifically:
 
 - Does this change satisfy a numbered requirement? Name the ID.
 - Does it violate the dependency rule? Core depends on nothing.

@@ -12,7 +12,7 @@
 
 This document is the complete requirements and design specification for Phase 1 of the project. It is written to be handed to an AI coding assistant (Claude Code, Copilot) as a project brief, and to be read by an interviewer as evidence of how you approach a build.
 
-Phase 2 (a coronary calcium scoring application that docks into this viewer) is specified in a separate document. **Phase 1 must build and pass its tests standalone.** The plugin *host* infrastructure is in scope for Phase 1; the plugin *implementation* is not.
+Phase 2 (a 3D volume-rendered view of the same reconstructed volume) is specified in a separate document. **Phase 1 must build and pass its tests standalone**, and it does: Phase 2 adds a rendering project and a fifth view, and changes nothing Phase 1 relies on.
 
 ---
 
@@ -24,7 +24,7 @@ A Windows desktop workstation, written in C#/WPF, that loads a CT study from dis
 
 ### 1.2 Why this project
 
-The target team primarily builds Windows desktop applications and the services behind them, for multi-modality advanced visualization. This project exercises exactly that: DICOM ingestion, 3D volume reconstruction, real-time 2D rendering under a memory and latency budget, an MVVM desktop UI, dependency injection, and a plugin architecture for clinical applications.
+The target team primarily builds Windows desktop applications and the services behind them, for multi-modality advanced visualization. This project exercises exactly that: DICOM ingestion, 3D volume reconstruction, real-time 2D rendering under a memory and latency budget, an MVVM desktop UI, and dependency injection. Phase 2 adds the third dimension to the rendering: a volume renderer with an editable transfer function, which is the same ray-marching problem carried through to colour and opacity.
 
 It is also a genuine computer science problem. You will be doing coordinate transforms, trilinear interpolation, ray marching, and cache-conscious memory access on a ~200 MB volume while trying to hold 60 fps. That gives you real engineering decisions to talk about, which is the entire point.
 
@@ -38,12 +38,13 @@ Do not build these. Cutting them is a decision you should be able to defend, not
 
 | Not building | Why |
 |---|---|
-| Full volume rendering with transfer functions | Weeks of work; MIP demonstrates the same ray-marching skill |
+| Full volume rendering with transfer functions | **Moved to Phase 2**, which is now the 3D viewer. Phase 1's slab MIP is the same ray march without colour or opacity, and it earns the geometry the 3D view is built on |
 | Curved planar reformation / rib unfolding | Separate product, 4–6 uncertain days, and a half-working version reads worse than none |
-| Any segmentation or AI inference | Phase 2 uses thresholding only |
+| Any segmentation or AI inference | Neither phase does it. The 3D view classifies voxels by density through a transfer function, which is a lookup, not a segmentation |
 | DICOMweb / PACS connectivity (Orthanc, QIDO-RS, WADO-RS) | Deferred by decision. Folder-open only — fewer moving parts to explain in a 10-minute demo, and no server to fail in the room |
-| DICOM write-back / STOW-RS / structured reports | Deferred to Phase 2, where a calcium score report gives it a purpose |
+| DICOM write-back / STOW-RS / structured reports | Cut from both phases. Nothing either phase produces needs to go back to an archive |
 | Secondary-capture DICOM export | PNG export covers the demo need at a fraction of the cost |
+| A plugin or clinical-application platform | Cut. There is no second application to host: the project is this viewer and the 3D viewer, and a seam with nothing on the other side of it is a control you cannot account for (see §1.6) |
 | Multi-study comparison or hanging protocols | Adds UI complexity, adds no algorithmic depth |
 | MR, PET, or ultrasound support | CT only. State this as a deliberate scope boundary |
 | User accounts, audit logging, PHI de-identification | Public research data is already de-identified |
@@ -116,10 +117,9 @@ InterviewTrea.sln
 │   │   ├── WindowLevelLut.cs
 │   │   └── RenderTarget.cs              # byte[] + width/height/stride
 │   │
-│   ├── InterviewTrea.Applications.Abstractions/   # Plugin contract. Phase 2 hooks here.
-│   │   ├── IClinicalApplication.cs
-│   │   ├── IApplicationContext.cs
-│   │   └── IOverlayLayer.cs
+│   ├── InterviewTrea.Rendering3D/          # Phase 2. Core only. Also returns byte[].
+│   │   ├── VolumeRaycaster.cs
+│   │   └── TransferFunction.cs
 │   │
 │   └── InterviewTrea.App/                     # WPF. Views, ViewModels, composition root.
 │       ├── App.xaml(.cs)                # Host builder, DI registration
@@ -144,7 +144,7 @@ InterviewTrea.sln
 └── .github/workflows/ci.yml
 ```
 
-**Dependency rule, enforced by project references:** `Core` depends on nothing. `Dicom`, `Rendering`, and `Applications.Abstractions` depend on `Core` only. `App` depends on everything. Nothing depends on `App`. If you find yourself wanting to reference WPF from `Rendering`, you have made a mistake — `Rendering` produces a `byte[]`, and `App` wraps it in a `WriteableBitmap`.
+**Dependency rule, enforced by project references:** `Core` depends on nothing. `Dicom`, `Rendering`, and Phase 2's `Rendering3D` depend on `Core` only. `App` depends on everything. Nothing depends on `App`. If you find yourself wanting to reference WPF from `Rendering`, you have made a mistake — `Rendering` produces a `byte[]`, and `App` wraps it in a `WriteableBitmap`.
 
 That rule is worth stating explicitly in the interview. It is why your rendering code is unit-testable without a UI thread.
 
@@ -315,62 +315,10 @@ FR-208 is the one people miss. If your voxels are 3 mm apart in Z and 0.7 mm in-
 | FR-406 | Measurements shall persist while scrolling and shall be hidden when the current slice is more than half a slice thickness from the measurement's plane. |
 | FR-407 | The system shall support deleting an individual measurement and clearing all. |
 | FR-408 | The system shall export the measurement list to CSV. |
-| FR-409 | The system shall export the active viewport as a PNG with the RQ-1 disclaimer burned into the image. |
+| FR-409 | The system shall export a chosen viewport, or the whole 2×2 layout as displayed, as a PNG with the RQ-1 disclaimer burned into the image. The target shall be named in the interface before the export runs. |
 | FR-410 | Each measurement shall carry a stable identifier, shown beside it and exported with it. |
+| FR-412 | Zoom shall not go below fit-to-pane, and pan shall not move the image out of its viewport. |
 | FR-411 | The system shall support moving an existing measurement and resizing it by its endpoints. |
-
-### FR-500 — Application platform (plugin host)
-
-This section is the seam Phase 2 plugs into. Build the host now, ship it with zero plugins registered, and prove it works with one trivial example plugin.
-
-| ID | Requirement |
-|---|---|
-| FR-501 | The system shall define an `IClinicalApplication` contract in `InterviewTrea.Applications.Abstractions`. |
-| FR-502 | Clinical applications shall be discovered through the DI container at startup and listed in an Applications menu. |
-| FR-503 | Launching an application shall pass it an `IApplicationContext` giving read access to the loaded volume, the current reslice plane, and the measurement store. |
-| FR-504 | An active application shall be able to contribute a tool panel to the right-hand dock. |
-| FR-505 | An active application shall be able to contribute overlay layers rendered on top of any viewport. |
-| FR-506 | The core viewer shall build, run, and pass all tests with no clinical applications registered. |
-| FR-507 | The system shall ship one trivial reference application ("Histogram") that displays a HU histogram of the loaded volume, to demonstrate the contract. |
-
-Suggested contract shape:
-
-```csharp
-public interface IClinicalApplication
-{
-    string Id { get; }                 // "interviewtrea.histogram"
-    string DisplayName { get; }        // "Volume Histogram"
-    string Description { get; }
-    bool CanRun(IApplicationContext context);   // e.g. modality/series checks
-    IApplicationSession Start(IApplicationContext context);
-}
-
-public interface IApplicationSession : IDisposable
-{
-    object ToolPanelViewModel { get; }              // bound by the shell
-    IReadOnlyList<IOverlayLayer> OverlayLayers { get; }
-    event EventHandler OverlaysChanged;
-}
-
-public interface IApplicationContext
-{
-    Volume Volume { get; }
-    ReslicePlane CurrentPlane { get; }
-    IMeasurementStore Measurements { get; }
-    event EventHandler PlaneChanged;
-}
-```
-
-Registration then looks like:
-
-```csharp
-services.AddSingleton<IClinicalApplication, HistogramApplication>();
-// Phase 2 adds exactly one line here.
-```
-
-**This is the most interview-valuable part of Phase 1.** Canon's calcium scoring tool is not a standalone product — it is an application inside the Vitrea platform. Building a viewer that hosts pluggable clinical applications shows you read the product architecture, not just the feature list. When you demo, open the Applications menu and say "this is where the next one goes."
-
----
 
 ## 7. Non-functional requirements
 
@@ -517,13 +465,11 @@ Resist the urge to open a window before this works. Everything downstream is bui
 
 ### Iteration 5 — Platform and polish (target: ~3–4 days)
 
-**Goal:** the plugin seam and the presentation layer of the project.
+**Goal:** the presentation layer of the project.
 
-- `IClinicalApplication` / `IApplicationContext` / `IOverlayLayer` contracts (FR-501/503).
-- DI-based discovery, Applications menu, tool panel dock, overlay pipeline (FR-502/504/505).
-- Reference Histogram application (FR-507).
-- Verify the app runs clean with no applications registered (FR-506).
-- PNG viewport export with burned-in disclaimer (FR-409).
+- PNG export with burned-in disclaimer, of a named viewport or the whole layout (FR-409).
+- Series picker when a folder holds more than one series (FR-102).
+- Reset, measurement identifiers, measurement editing, zoom and pan bounds (FR-310, FR-410 to FR-412).
 - Final benchmark run; `docs/performance.md` written with before/after tables (NFR-304).
 - `docs/traceability.md` completed.
 - `docs/architecture.md` with a diagram.
@@ -550,7 +496,7 @@ Write four to six short ADRs in `docs/decisions/`. Format: Context, Decision, Co
 - ADR-001: `short[]` flat array over `float[,,]` for voxel storage
 - ADR-002: Hand-rolled reslicing instead of VTK/ITK bindings
 - ADR-003: Rendering layer returns `byte[]`, not WPF types
-- ADR-004: Plugin discovery via DI container rather than assembly scanning
+- ADR-004: *(spent on plugin discovery, then superseded when the platform was cut — see the file)*
 - ADR-005: Rejecting gantry-tilt series instead of resampling them
 
 ADR-005 is worth writing carefully. "I could have resampled tilted volumes, but that's a correctness risk I didn't want to take on unvalidated, so I detect and reject with a clear message" is exactly the reasoning a medical software team wants to hear.
@@ -612,7 +558,8 @@ Have crisp, specific answers ready for these. Rehearse them; do not wing it.
 5. **"How did you make it fast?"** The LUT, the Gray8 buffer, scanline parallelism, the axis-aligned fast path. Open `docs/performance.md` and read the numbers off it rather than quoting from memory.
 6. **"What would you do differently?"** Answer honestly. Something like: "I'd have written the geometry validator before the loader — I spent a day debugging a series that had variable spacing and I was assuming it didn't."
 7. **"What would you have built next?"** PACS connectivity over DICOMweb. Say why you cut it — a container and a network hop inside a ten-minute demo — and that the loader is already behind an interface, so swapping folder-open for a WADO-RS retrieve is a new implementation rather than a rewrite.
-8. **"How does this relate to what we build?"** Name the product category, not the product. Multi-modality advanced visualization, applications hosted on a viewing platform, image data flowing from an archive. Then show the Applications menu and say what goes there next.
+8. **"How does this relate to what we build?"** Name the product category, not the product: multi-modality advanced visualization, 2D and 3D views of the same reconstructed volume, image data flowing from an archive. Then show the same anatomy in MPR and in the 3D view and say that both are reading one `short[]` through one geometry.
+9. **"Why did you delete the plugin platform?"** Because it hosted nothing. It was built, it worked, and when the scope settled on a viewer and a 3D viewer there was no second application for it to carry — so it went, and the reasoning is in the history. Being able to remove your own work is worth more than a seam with nothing behind it.
 
 Do not oversell it. Call it a study project that taught you the domain, be precise about what it does and does not do, and let the traceability matrix and the benchmark numbers do the arguing.
 
@@ -640,9 +587,9 @@ Treat this as a deliverable, not an afterthought. Write it into `docs/demo-scrip
 | 3:00–4:00 | Cycle window presets | The LUT, and why it is precomputed rather than per-pixel |
 | 4:00–5:30 | Rotate to an oblique plane | Trilinear interpolation, and the millisecond cost of leaving the axis-aligned fast path |
 | 5:30–6:30 | Measure a distance and an ROI | Measurements are in patient space; here is the phantom test that proves the number |
-| 6:30–7:15 | Slab MIP, sweep the thickness | Ray marching, and why full volume rendering was cut |
+| 6:30–7:15 | Slab MIP, sweep the thickness | Ray marching, and that this is the 3D renderer without colour or opacity |
 | 7:15–8:00 | Open the broken series | Deliberate rejection with a clear message, and why rejecting beats guessing |
-| 8:00–9:00 | Applications menu, Histogram app | The plugin contract, and what goes here next |
+| 8:00–9:00 | Export the layout as a PNG, open the file | The disclaimer is in the pixels, and what is exported is the visual tree rather than a re-render |
 | 9:00–10:00 | Traceability matrix and `performance.md` on screen | How you knew it worked, and how you knew it was fast |
 
 The last two beats are the ones that separate this from a student project. Do not let the demo run long and lose them. If you are over time at 8:00, skip the MIP.
