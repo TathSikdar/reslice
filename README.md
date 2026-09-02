@@ -45,7 +45,8 @@ committed to this repository, and no patient identifier is displayed in any view
 | 3 | 2x2 MPR with linked crosshairs | Done |
 | 4 | Measurement and oblique reslicing | Done |
 | 5 | Export, series picker and polish | Done |
-| 6–7 | 3D volume rendering (Phase 2) | Specified, not started |
+| 6 | 3D ray caster: camera, transfer function, the march | Done |
+| 7 | Shading, the 3D view, orbit and progressive refinement | Done |
 
 The screenshot above is from Iteration 3 and shows the layout before the measurement
 tools and the applications dock existed.
@@ -114,22 +115,35 @@ planes and the crosshair to the middle of the volume.
 Zoom has a floor at fit and pan is bounded, so the image cannot be driven off the pane;
 Reset returns both to fit along with the geometry.
 
+The fourth pane's dropdown reads *MIP · MinIP · Average · 3D*. The last of those replaces
+the slab projection with a volume rendering of the same data: left-drag orbits it,
+wheel zooms, middle-drag pans, and the projection is orthographic because a perspective
+one makes near structures larger, which is the single thing a clinical image must not do.
+While the camera is moving it renders at quarter cost and sharpens a fifth of a second
+after you let go. It carries no measurement and no Hounsfield readout at all — a value
+read off a composited image is a function of the transfer function as much as of the
+patient — and measurement stays in the three planar panes, where it is a fact about one
+plane.
+
 Visible chrome is the regulatory banner, Open Folder, Reset, the Measure dropdown, Clear,
-Export CSV, and the PNG export with its target dropdown, plus the window and slab
-dropdowns. Everything else is a gesture, and every value a gesture changes is shown in the
-pane's own overlay.
+Export CSV, and the PNG export with its target dropdown, plus the window dropdown and the
+fourth pane's. The 3D view adds a preset dropdown and a shading checkbox, both visible only
+while it is up. Everything else is a gesture, and every value a gesture changes is shown in
+the pane's own overlay.
 
 ```
 InterviewTrea.Core            depends on nothing
         ^
         |-- InterviewTrea.Dicom          Core only. fo-dicom appears here and nowhere else.
-        |-- InterviewTrea.Rendering      Core only. Produces byte[]. Never System.Windows.*
+        |-- InterviewTrea.Rendering      Core only. Produces byte[] (Gray8). Never System.Windows.*
+        |-- InterviewTrea.Rendering3D    Core only. Produces byte[] (BGRA32). Same rule.
         |-- InterviewTrea.App            depends on everything. Nothing depends on it.
 ```
 
 `InterviewTrea.App` is the only project targeting `net8.0-windows`; every other one
 targets plain `net8.0`, which is what makes the rule enforceable rather than aspirational.
-Phase 2 adds `InterviewTrea.Rendering3D` on the same terms — Core only, returns a `byte[]`.
+The two renderers differ in nothing but pixel format — a volume rendering is colour, because
+telling tissues apart by colour is the transfer function's whole job.
 See [docs/architecture.md](docs/architecture.md).
 
 Volume storage is a flat `short[]` of Hounsfield units with x varying fastest. A
@@ -144,6 +158,8 @@ is highest. **The view layer is deliberately left to manual verification.** XAML
 and view construction are not unit tested, because that is where the return on test
 investment collapses and chasing the number would produce tests that assert the
 framework works.
+
+Line coverage runs at 96.5% on Core, 93.2% on Rendering and 98.1% on Rendering3D.
 
 Numeric tests use analytically derived expected values, never snapshots or golden files.
 A trilinear sample at the midpoint of a 0-to-1000 HU ramp is asserted to be 500 because
@@ -191,8 +207,17 @@ Stated plainly, because a vague limitations section is worse than none.
   clips to black under any window, but an ROI covering the corners of the field of view
   would average a number that was never a measurement. This matters for Phase 2, not
   for viewing.
-- **There is no 3D view yet.** Volume rendering is Phase 2 and is specified but not built.
-  What exists is the slab MIP, which is the same ray march without colour or opacity.
+- **The transfer function has presets, not an editor.** Four of them, and no way to drag a
+  control point. FR-606 is deferred: the presets are what a demo needs, and an editor is
+  the one feature the spec names as able to grow without limit.
+- **The Angio preset tints the edge of every bone red.** The outside of a rib passes
+  through 300 HU on its way up, and a transfer function classifies by density — nothing in
+  it can tell that from a vessel at 300 HU. Telling them apart is segmentation, which is a
+  stated non-goal. On a non-contrast study, which is most public data, Angio is showing
+  bone edges.
+- **The 3D view renders at most 512 pixels on its long side** and is stretched to the pane.
+  A ray caster costs one march per output pixel, so the bound is on the render rather than
+  on how large the window can be dragged.
 - **There is no plugin platform.** One was built in Iteration 5 and removed when the scope
   settled on a viewer and a 3D viewer, because it hosted nothing. It is in the history.
 - **An ROI has grab handles on two corners, not four.** They are the two points the drag

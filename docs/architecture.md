@@ -2,7 +2,7 @@
 
 > **RESEARCH AND DEMONSTRATION USE ONLY — NOT A MEDICAL DEVICE. NOT FOR DIAGNOSTIC USE.**
 
-Three libraries and one executable. The shape of the dependency graph is the whole design:
+Four libraries and one executable. The shape of the dependency graph is the whole design:
 every rule below is enforced by something a compiler checks, not by a convention someone
 has to remember.
 
@@ -14,19 +14,19 @@ has to remember.
                         │  geometry · volumes ·         │   depends on nothing
                         │  reslicing · measurements     │
                         └───────────────────────────────┘
-                          ▲                     ▲
-              ┌───────────┘                     └───────────┐
-              │                                             │
-┌─────────────┴──────┐                       ┌──────────────┴───┐
-│ InterviewTrea      │                       │ InterviewTrea    │
-│        .Dicom      │                       │      .Rendering  │
-│ fo-dicom lives     │                       │ volume → byte[]  │
-│ here and nowhere   │                       │ never            │
-│ else               │                       │ System.Windows.* │
-└─────────┬──────────┘                       └────────┬─────────┘
-          │                                           │
-          └──────────────────┬────────────────────────┘
-                             ▼
+                    ▲               ▲               ▲
+        ┌───────────┘               │               └───────────┐
+        │                           │                           │
+┌───────┴────────────┐  ┌───────────┴──────┐  ┌─────────────────┴┐
+│ InterviewTrea      │  │ InterviewTrea    │  │ InterviewTrea    │
+│        .Dicom      │  │      .Rendering  │  │    .Rendering3D  │
+│ fo-dicom lives     │  │ MPR → Gray8      │  │ rays → BGRA32    │
+│ here and nowhere   │  │ never            │  │ never            │
+│ else               │  │ System.Windows.* │  │ System.Windows.* │
+└─────────┬──────────┘  └────────┬─────────┘  └────────┬─────────┘
+          │                      │                     │
+          └──────────────┬───────┴─────────────────────┘
+                         ▼
         ┌────────────────────────────────────┐
         │        InterviewTrea.App           │   net8.0-windows, UseWPF
         │  views · view models · App.xaml.cs │   depends on everything
@@ -55,11 +55,12 @@ would be a change to one project.
 nothing about bitmaps; the WPF layer wraps that buffer in a `WriteableBitmap` and calls
 `WritePixels` once per frame. See [ADR-003](decisions/ADR-003.md).
 
-**Phase 2 arrives on the same terms.** `InterviewTrea.Rendering3D` will depend on Core
-only and return a `byte[]`, differing from `InterviewTrea.Rendering` in nothing but its
-pixel format — BGRA32 rather than Gray8, because a volume rendering is colour. It is a
-separate project so that work on the 3D path cannot disturb the 2D one, which is the path
-with committed benchmark numbers.
+**Rendering3D arrives on the same terms.** It depends on Core only and returns a `byte[]`,
+differing from `InterviewTrea.Rendering` in nothing but its pixel format — BGRA32 rather
+than Gray8, because a volume rendering is colour. It is a separate project so that work on
+the 3D path cannot disturb the 2D one, which is the path with committed benchmark numbers.
+The 3D view is a mode of the fourth pane rather than a layout of its own; see
+[ADR-006](decisions/ADR-006.md).
 
 **There is no plugin platform.** One was built and removed; see
 [ADR-004](decisions/ADR-004.md), which records both the decision and its reversal.
