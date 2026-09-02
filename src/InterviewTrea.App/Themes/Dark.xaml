@@ -50,7 +50,7 @@
     <sys:Double x:Key="Opacity.Overlay">0.7</sys:Double>
 
     <sys:Double x:Key="Size.Text.Marker">11</sys:Double>
-    <sys:Double x:Key="Size.Text.Measurement">13</sys:Double>
+    <sys:Double x:Key="Size.Text.Measurement">15</sys:Double>
     <sys:Double x:Key="Size.Crosshair">1</sys:Double>
     <sys:Double x:Key="Opacity.Crosshair">0.85</sys:Double>
     <sys:Double x:Key="Opacity.Marker">0.55</sys:Double>
@@ -119,6 +119,15 @@
     -->
     <DropShadowEffect x:Key="Effect.TextHalo" Color="Black" ShadowDepth="0" BlurRadius="3" Opacity="1" />
 
+    <!--
+        The same halo, wider. A drop shadow can only be as opaque as the glyph casting it,
+        so the way to make amber survive 700 HU cortical bone is a heavier glyph throwing a
+        wider shadow, not a darker colour - the accent is fixed by the visual rules and a
+        second colour for measurements over bright tissue would mean the annotation changed
+        appearance depending on what was underneath it.
+    -->
+    <DropShadowEffect x:Key="Effect.TextHalo.Strong" Color="Black" ShadowDepth="0" BlurRadius="6" Opacity="1" />
+
     <!-- Overlays sit over the image and must never compete with it (Phase 1 visual rules). -->
     <Style x:Key="Style.Overlay" TargetType="TextBlock">
         <Setter Property="Foreground" Value="{StaticResource Brush.Text.Primary}" />
@@ -151,7 +160,8 @@
         <Setter Property="Foreground" Value="{StaticResource Brush.Accent}" />
         <Setter Property="FontFamily" Value="{StaticResource Font.Numeric}" />
         <Setter Property="FontSize" Value="{StaticResource Size.Text.Measurement}" />
-        <Setter Property="Effect" Value="{StaticResource Effect.TextHalo}" />
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="Effect" Value="{StaticResource Effect.TextHalo.Strong}" />
     </Style>
 
     <Style x:Key="Style.ComboBoxItem" TargetType="ComboBoxItem">
