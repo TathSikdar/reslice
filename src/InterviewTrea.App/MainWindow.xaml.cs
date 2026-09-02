@@ -9,7 +9,6 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using InterviewTrea.App.ViewModels;
-using InterviewTrea.Applications.Abstractions;
 using InterviewTrea.App.Views;
 using InterviewTrea.Core.Measurements;
 using InterviewTrea.Core.Volumes;
@@ -107,21 +106,6 @@ public partial class MainWindow : Window
         viewModel.Measurements.Clear();
 
     private void OnReset(object sender, RoutedEventArgs e) => viewModel.Reset();
-
-    /// <summary>
-    /// FR-502. The clicked entry's DataContext is the application it was generated from,
-    /// which is why the menu needs no command plumbing and no per-application handler.
-    /// </summary>
-    private void OnLaunchApplication(object sender, RoutedEventArgs e)
-    {
-        if (sender is FrameworkElement { DataContext: IClinicalApplication application })
-        {
-            viewModel.Launch(application);
-        }
-    }
-
-    private void OnCloseApplication(object sender, RoutedEventArgs e) =>
-        viewModel.CloseApplication();
 
     /// <summary>
     /// FR-408. The document is built in Core and only the file is written here, so the

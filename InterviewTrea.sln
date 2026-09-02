@@ -29,10 +29,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "InterviewTrea.App", "src\In
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "InterviewTrea.Benchmarks", "tests\InterviewTrea.Benchmarks\InterviewTrea.Benchmarks.csproj", "{9F0EE728-7368-4218-B2E7-314954129934}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "InterviewTrea.Applications.Abstractions", "src\InterviewTrea.Applications.Abstractions\InterviewTrea.Applications.Abstractions.csproj", "{9850D0E7-C345-446E-BFC1-631AFB74AA7D}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "InterviewTrea.Applications.Histogram", "src\InterviewTrea.Applications.Histogram\InterviewTrea.Applications.Histogram.csproj", "{19F5985A-CDA5-45FC-92E9-122B996B8452}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -82,14 +78,6 @@ Global
 		{9F0EE728-7368-4218-B2E7-314954129934}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{9F0EE728-7368-4218-B2E7-314954129934}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{9F0EE728-7368-4218-B2E7-314954129934}.Release|Any CPU.Build.0 = Release|Any CPU
-		{9850D0E7-C345-446E-BFC1-631AFB74AA7D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{9850D0E7-C345-446E-BFC1-631AFB74AA7D}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{9850D0E7-C345-446E-BFC1-631AFB74AA7D}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{9850D0E7-C345-446E-BFC1-631AFB74AA7D}.Release|Any CPU.Build.0 = Release|Any CPU
-		{19F5985A-CDA5-45FC-92E9-122B996B8452}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{19F5985A-CDA5-45FC-92E9-122B996B8452}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{19F5985A-CDA5-45FC-92E9-122B996B8452}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{19F5985A-CDA5-45FC-92E9-122B996B8452}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{27C04F19-E8E4-434C-9EBB-AC96DCFDB9B8} = {F0EDAF77-E5EA-4EB5-81F5-25FCE7252714}
@@ -102,7 +90,5 @@ Global
 		{CBA40B0D-E6ED-44DF-A205-D25AF175A40C} = {98852C4B-802F-4EC7-BDB5-C388F7BAEA23}
 		{0367DD5B-CC92-4D3F-97F2-74A3677619B3} = {F0EDAF77-E5EA-4EB5-81F5-25FCE7252714}
 		{9F0EE728-7368-4218-B2E7-314954129934} = {98852C4B-802F-4EC7-BDB5-C388F7BAEA23}
-		{9850D0E7-C345-446E-BFC1-631AFB74AA7D} = {F0EDAF77-E5EA-4EB5-81F5-25FCE7252714}
-		{19F5985A-CDA5-45FC-92E9-122B996B8452} = {F0EDAF77-E5EA-4EB5-81F5-25FCE7252714}
 	EndGlobalSection
 EndGlobal

@@ -32,15 +32,6 @@ public partial class App : Application
 
         builder.Services.AddSingleton<ISeriesPrompt, Views.SeriesPrompt>();
 
-        // FR-502, FR-507. The whole of plugin registration, and the line Phase 2 adds one
-        // more of. Discovery is the container's job rather than assembly scanning: what is
-        // available is what someone wrote down here, which can be read, reviewed and
-        // reasoned about, and an application cannot appear in a clinical viewer because a
-        // DLL happened to be in a folder.
-        builder.Services.AddSingleton<
-            Applications.Abstractions.IClinicalApplication,
-            Applications.Histogram.HistogramApplication>();
-
         builder.Services.AddSingleton<ViewModels.MainViewModel>();
         builder.Services.AddSingleton<MainWindow>();
 

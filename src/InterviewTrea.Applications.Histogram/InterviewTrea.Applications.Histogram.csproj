@@ -1,7 +1,0 @@
-<Project Sdk="Microsoft.NET.Sdk">
-
-  <ItemGroup>
-    <ProjectReference Include="..\InterviewTrea.Applications.Abstractions\InterviewTrea.Applications.Abstractions.csproj" />
-  </ItemGroup>
-
-</Project>
