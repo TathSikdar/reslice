@@ -59,6 +59,15 @@
                     scene for shapes that used to be measurements.
                 -->
                 <Canvas x:Name="Annotations" />
+
+                <!--
+                    FR-505. What the running application draws. Inside the transform for the
+                    same reason the measurements are: an overlay is expressed in patient
+                    millimetres, so it is a fact about the plane and has to move with it.
+                    Above the measurements, because a plugin's marks are what the user asked
+                    to see when they opened it.
+                -->
+                <Canvas x:Name="Overlays" IsHitTestVisible="False" />
             </Canvas>
 
             <!--
@@ -69,6 +78,9 @@
                 without being inside it.
             -->
             <Canvas x:Name="Readouts" IsHitTestVisible="False" />
+
+            <!-- FR-505 labels, outside the transform for the same reason the readouts are. -->
+            <Canvas x:Name="OverlayText" IsHitTestVisible="False" />
 
             <!-- FR-204. Outside the transform, so they stay pinned to the pane. -->
             <TextBlock Text="{Binding TopMarker}" Style="{StaticResource Style.Marker}"

@@ -9,6 +9,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 using InterviewTrea.App.ViewModels;
+using InterviewTrea.Applications.Abstractions;
 using InterviewTrea.Core.Geometry;
 using InterviewTrea.Core.Measurements;
 using InterviewTrea.Core.Reslicing;
@@ -76,6 +77,7 @@ public partial class ViewportControl : UserControl
     private (int Index, Measurement Original, Grab Grab, Point3D Grabbed)? editing;
 
     private MainViewModel? subscribedShell;
+    private IApplicationSession? subscribedSession;
     private ViewportViewModel? subscribedViewport;
 
     public ViewportControl()
@@ -141,6 +143,8 @@ public partial class ViewportControl : UserControl
             old.Measurements.CollectionChanged -= control.OnMeasurementsChanged;
         }
 
+        control.SubscribeToSession(null);
+
         control.subscribedShell = e.NewValue as MainViewModel;
 
         if (control.subscribedShell is MainViewModel shell)
@@ -194,6 +198,13 @@ public partial class ViewportControl : UserControl
                 DrawMeasurements();
                 break;
 
+            // FR-505. A new session brings its own layers and the old one's have to go,
+            // including from the three panes that were not looking at it.
+            case nameof(MainViewModel.Session):
+                SubscribeToSession(Shell?.Session);
+                DrawOverlays();
+                break;
+
             // The slab settings leave the plane alone and change only what is projected
             // through it, so the pane that draws a slab redraws and the other three have
             // nothing to do.
@@ -236,6 +247,27 @@ public partial class ViewportControl : UserControl
 
     private void OnMeasurementsChanged(object? sender, NotifyCollectionChangedEventArgs e) =>
         DrawMeasurements();
+
+    /// <summary>
+    /// FR-505. Follows the running session's <c>OverlaysChanged</c>, so an application that
+    /// changes what it draws does not have to know how many panes are showing it.
+    /// </summary>
+    private void SubscribeToSession(IApplicationSession? next)
+    {
+        if (subscribedSession is IApplicationSession old)
+        {
+            old.OverlaysChanged -= OnOverlaysChanged;
+        }
+
+        subscribedSession = next;
+
+        if (subscribedSession is IApplicationSession session)
+        {
+            session.OverlaysChanged += OnOverlaysChanged;
+        }
+    }
+
+    private void OnOverlaysChanged(object? sender, EventArgs e) => DrawOverlays();
 
     private void OnHostSizeChanged(object sender, SizeChangedEventArgs e) => UpdateTransform();
 
@@ -341,6 +373,7 @@ public partial class ViewportControl : UserControl
 
         UpdateCrosshair(plane, total.M11);
         DrawMeasurements();
+        DrawOverlays();
         ZoomLabel = string.Create(CultureInfo.InvariantCulture, $"zoom {user.M11:0.00}x");
     }
 
@@ -456,6 +489,109 @@ public partial class ViewportControl : UserControl
         {
             Draw(drawing, plane, thickness, volume, hovered: false);
         }
+    }
+
+    /// <summary>
+    /// FR-505. Draws whatever the running application wants on this pane's plane.
+    /// </summary>
+    /// <remarks>
+    /// Each layer is asked about this pane's plane separately, which is what lets one
+    /// overlay appear in all four panes without the application knowing there are four -
+    /// and what makes a layer that does not reach this plane cost one call returning an
+    /// empty list. The slab pane is included: a slab still has a centre plane, and an
+    /// overlay that belongs on it belongs there too.
+    /// </remarks>
+    private void DrawOverlays()
+    {
+        Overlays.Children.Clear();
+        OverlayText.Children.Clear();
+
+        if (Shell?.Session is not IApplicationSession session ||
+            DataContext is not ViewportViewModel viewport ||
+            viewport.Plane is not ReslicePlane plane)
+        {
+            return;
+        }
+
+        double scale = Math.Max(ViewTransform.Matrix.M11, 1e-9);
+
+        foreach (IOverlayLayer layer in session.OverlayLayers)
+        {
+            if (!layer.IsVisible)
+            {
+                continue;
+            }
+
+            foreach (OverlayShape shape in layer.ShapesOn(plane))
+            {
+                Draw(shape, plane, scale);
+            }
+        }
+    }
+
+    private void Draw(OverlayShape shape, ReslicePlane plane, double scale)
+    {
+        if (shape.Points.Count == 0)
+        {
+            return;
+        }
+
+        SolidColorBrush brush = BrushFor(shape.ColorArgb);
+
+        if (shape.Kind == OverlayShapeKind.Text)
+        {
+            (double column, double row) = plane.ToPixel(shape.Points[0]);
+            Point anchor = ViewTransform.Matrix.Transform(new Point(column, row));
+
+            TextBlock label = new()
+            {
+                Text = shape.Text,
+                Foreground = brush,
+                Style = TryFindResource("Style.Overlay") as Style,
+            };
+
+            Canvas.SetLeft(label, anchor.X + LabelOffsetPixels);
+            Canvas.SetTop(label, anchor.Y);
+            OverlayText.Children.Add(label);
+            return;
+        }
+
+        PointCollection points = [];
+
+        foreach (Point3D patient in shape.Points)
+        {
+            (double column, double row) = plane.ToPixel(patient);
+            points.Add(new Point(column, row));
+        }
+
+        // A closed run is a Polygon rather than a Polyline with the first point repeated:
+        // repeating it leaves a visible notch at the join where the two ends of a thick
+        // stroke meet without being mitred.
+        Shape outline = shape.IsClosed
+            ? new Polygon { Points = points, Fill = null }
+            : new Polyline { Points = points, Fill = null };
+
+        outline.Stroke = brush;
+
+        // Divided back out of the zoom, like every other annotation: the plugin asked for a
+        // width in screen pixels and it should still be that at any magnification.
+        outline.StrokeThickness = shape.ThicknessPixels / scale;
+
+        Overlays.Children.Add(outline);
+    }
+
+    /// <summary>
+    /// Turns a packed ARGB value from the contract into a brush. Frozen, because these are
+    /// rebuilt on every redraw and a frozen brush costs nothing to hand to the render
+    /// thread.
+    /// </summary>
+    private static SolidColorBrush BrushFor(uint argb)
+    {
+        SolidColorBrush brush = new(Color.FromArgb(
+            (byte)(argb >> 24), (byte)(argb >> 16), (byte)(argb >> 8), (byte)argb));
+
+        brush.Freeze();
+        return brush;
     }
 
     /// <summary>Adds one measurement's outline to the annotation canvas, in plane pixels.</summary>
