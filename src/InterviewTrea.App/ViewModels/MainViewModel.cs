@@ -109,6 +109,14 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private int axesVersion;
 
+    /// <summary>
+    /// Bumped by <see cref="Reset"/>. Zoom and pan are per-pane view state, so the only way
+    /// the shell can return them to fit is to say that a reset happened and let each pane
+    /// act on it.
+    /// </summary>
+    [ObservableProperty]
+    private int resetVersion;
+
     public (Vector3D Row, Vector3D Column) AxesFor(PlaneOrientation orientation) =>
         axes[(int)orientation];
 
@@ -168,9 +176,9 @@ public sealed partial class MainViewModel : ObservableObject
     /// volume, and nothing drawn on it.
     /// </summary>
     /// <remarks>
-    /// Zoom and pan are deliberately left alone. They are per-pane state living in the
-    /// view's own matrix, and a magnification set up on one pane is a different kind of
-    /// thing from the shared geometry this button exists to undo.
+    /// Zoom and pan go back to fit too. They live per pane in the view's own matrix rather
+    /// than here, so this raises <see cref="ResetVersion"/> and each pane resets its own -
+    /// the shell does not need to know how many panes there are or what a matrix is.
     /// </remarks>
     public void Reset()
     {
@@ -182,6 +190,7 @@ public sealed partial class MainViewModel : ObservableObject
         ResetAxes();
         Measurements.Clear();
         SetCrosshair(Centre(loaded));
+        ResetVersion++;
 
         // After the crosshair, because SetCrosshair is what re-cuts the panes with the
         // restored axes. This is what tells a pane whose own plane did not move to redraw

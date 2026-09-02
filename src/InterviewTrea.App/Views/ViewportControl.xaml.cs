@@ -188,6 +188,13 @@ public partial class ViewportControl : UserControl
                 UpdateTransform();
                 break;
 
+            // FR-310. Reset puts the view back to fit as well as the geometry back to the
+            // anatomical planes. A pane left magnified after a reset is the one pane still
+            // showing what the user asked to undo.
+            case nameof(MainViewModel.ResetVersion):
+                Refresh(resetZoom: true);
+                break;
+
             // FR-407. Only the outlines change, and only their weight, so the image and
             // the transform are left alone.
             case nameof(MainViewModel.Hovered):
@@ -333,6 +340,8 @@ public partial class ViewportControl : UserControl
             (Host.ActualWidth - (plane.Width * scale)) / 2,
             (Host.ActualHeight - (plane.Height * scale)) / 2);
 
+        ClampUser(plane);
+
         // Fit first, then whatever the mouse has done - so zoom and pan operate in screen
         // space, which is the space the gestures are expressed in.
         Matrix total = fit;
@@ -342,6 +351,66 @@ public partial class ViewportControl : UserControl
         UpdateCrosshair(plane, total.M11);
         DrawMeasurements();
         ZoomLabel = string.Create(CultureInfo.InvariantCulture, $"zoom {user.M11:0.00}x");
+    }
+
+    /// <summary>
+    /// Holds the view somewhere the image is actually visible.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Two rules, both about the same failure. Zoom has a floor at fit, because zooming out
+    /// past the point where the whole plane is on screen only adds black, and far enough
+    /// out the image becomes a speck and then leaves the pane entirely - a state with no
+    /// obvious way back except a control that exists to undo it.
+    /// </para>
+    /// <para>
+    /// Pan is bounded per axis. An image larger than the pane may not bring its edges
+    /// inside, so there is always anatomy under the cursor; an image smaller than the pane
+    /// on that axis is centred, because every other position is further from the middle for
+    /// no gain. Applied here rather than in the gesture handlers so it holds for zoom, pan,
+    /// a window resize and a new series alike - there is one place the view matrix is
+    /// composed, and this is it.
+    /// </para>
+    /// </remarks>
+    private void ClampUser(ReslicePlane plane)
+    {
+        if (user.M11 < 1)
+        {
+            user.M11 = 1;
+            user.M22 = 1;
+        }
+
+        user.OffsetX = ClampAxis(
+            fit.M11, fit.OffsetX, plane.Width, Host.ActualWidth, user.M11, user.OffsetX);
+
+        user.OffsetY = ClampAxis(
+            fit.M22, fit.OffsetY, plane.Height, Host.ActualHeight, user.M22, user.OffsetY);
+    }
+
+    /// <summary>
+    /// The user-space offset on one axis that puts the image where the rules above want it.
+    /// </summary>
+    /// <remarks>
+    /// The composed transform is fit then user, so the image starts at
+    /// <c>fitOffset * userScale + userOffset</c> on screen. Clamping the start and solving
+    /// back for the offset is what keeps this one subtraction rather than a matrix inverse.
+    /// </remarks>
+    private static double ClampAxis(
+        double fitScale,
+        double fitOffset,
+        double planeSize,
+        double paneSize,
+        double userScale,
+        double userOffset)
+    {
+        double size = planeSize * fitScale * userScale;
+        double start = (fitOffset * userScale) + userOffset;
+
+        start = size >= paneSize
+            ? Math.Clamp(start, paneSize - size, 0)
+            : (paneSize - size) / 2;
+
+        return start - (fitOffset * userScale);
     }
 
     private void UpdateCrosshair(ReslicePlane plane, double totalScale)
