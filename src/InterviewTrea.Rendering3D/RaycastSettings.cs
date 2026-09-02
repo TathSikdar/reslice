@@ -9,6 +9,23 @@ public sealed record RaycastSettings
     /// <summary>Millimetres between samples along a ray.</summary>
     public required double StepMm { get; init; }
 
+    /// <summary>Whether gradient shading is applied (FR-607).</summary>
+    public bool IsShaded { get; init; }
+
+    /// <summary>The lighting constants, when <see cref="IsShaded"/>.</summary>
+    public ShadingParameters Shading { get; init; } = ShadingParameters.Default;
+
+    /// <summary>
+    /// Opacity below which a sample is not worth six extra trilinear samples to shade.
+    /// </summary>
+    /// <remarks>
+    /// Shading costs about four times what a plain sample costs, and a sample contributing
+    /// two percent of a pixel cannot repay that. The saving is real on a surface preset,
+    /// where most of what a ray crosses is nearly transparent tissue in front of the one
+    /// surface that matters.
+    /// </remarks>
+    public double MinimumOpacityToShade { get; init; } = 0.02;
+
     /// <summary>
     /// Accumulated opacity at which a ray stops (FR-602).
     /// </summary>

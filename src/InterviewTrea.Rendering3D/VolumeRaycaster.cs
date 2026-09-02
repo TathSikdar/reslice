@@ -56,6 +56,10 @@ public static class VolumeRaycaster
 
         Vector3D forward = camera.Forward;
 
+        // The headlight sits at the eye, so the direction back to it is the reverse of the
+        // view direction and is the same for every pixel under a parallel projection.
+        Vector3D towardViewer = forward.Negate();
+
         // Every ray is parallel under an orthographic projection, so the direction converts
         // to voxel space once for the whole image. Only the origin changes per pixel.
         Vector3D stepInVoxels = volume.PatientToVoxel.TransformDirection(forward).Scale(settings.StepMm);
@@ -70,7 +74,7 @@ public static class VolumeRaycaster
             {
                 Rgb pixel = Cast(
                     volume, camera.RayOrigin(column, row, width, height), forward, stepInVoxels,
-                    colours, opacities, settings);
+                    colours, opacities, settings, towardViewer);
 
                 destination[offset + 0] = pixel.B;
                 destination[offset + 1] = pixel.G;
@@ -88,7 +92,8 @@ public static class VolumeRaycaster
         Vector3D stepInVoxels,
         byte[] colours,
         float[] opacities,
-        RaycastSettings settings)
+        RaycastSettings settings,
+        Vector3D towardViewer)
     {
         if (!RayBox.TryIntersect(volume, origin, direction, out double enter, out double exit))
         {
@@ -119,7 +124,18 @@ public static class VolumeRaycaster
             if (alpha > 0)
             {
                 index *= 3;
-                ray.Add(colours[index], colours[index + 1], colours[index + 2], alpha);
+                double shade = settings.IsShaded && alpha >= settings.MinimumOpacityToShade
+                    ? GradientShader.Shade(
+                        GradientShader.Gradient(volume, voxel.X, voxel.Y, voxel.Z),
+                        towardViewer,
+                        settings.Shading)
+                    : 1.0;
+
+                ray.Add(
+                    Lit(colours[index], shade),
+                    Lit(colours[index + 1], shade),
+                    Lit(colours[index + 2], shade),
+                    alpha);
 
                 if (ray.Opacity >= settings.EarlyTerminationOpacity)
                 {
@@ -132,4 +148,9 @@ public static class VolumeRaycaster
 
         return ray.OverBlack();
     }
+
+    // Clamped rather than left to wrap: a specular highlight on a bright preset drives the
+    // product well past 255, and a wrapped byte turns the brightest part of a surface black.
+    private static byte Lit(byte channel, double shade) =>
+        (byte)Math.Clamp(channel * shade, 0, 255);
 }
