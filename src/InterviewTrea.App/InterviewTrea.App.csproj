@@ -16,6 +16,7 @@
     <ProjectReference Include="..\InterviewTrea.Core\InterviewTrea.Core.csproj" />
     <ProjectReference Include="..\InterviewTrea.Dicom\InterviewTrea.Dicom.csproj" />
     <ProjectReference Include="..\InterviewTrea.Rendering\InterviewTrea.Rendering.csproj" />
+    <ProjectReference Include="..\InterviewTrea.Applications.Abstractions\InterviewTrea.Applications.Abstractions.csproj" />
   </ItemGroup>
 
   <ItemGroup>

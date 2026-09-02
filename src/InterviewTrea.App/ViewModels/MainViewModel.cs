@@ -269,7 +269,7 @@ public sealed partial class MainViewModel : ObservableObject
     /// measurement shows up in the axial pane and in a maximized copy of it without being
     /// stored twice or kept in step.
     /// </remarks>
-    public ObservableCollection<Measurement> Measurements { get; } = [];
+    public MeasurementStore Measurements { get; } = [];
 
     /// <summary>
     /// FR-410. Adds a measurement under the next identifier. The only way one should enter
