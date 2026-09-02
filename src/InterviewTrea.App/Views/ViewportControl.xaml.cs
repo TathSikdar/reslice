@@ -539,14 +539,20 @@ public partial class ViewportControl : UserControl
     /// </summary>
     private static string Readout(Measurement measurement, Volume volume)
     {
+        // FR-410. The pending measurement has no number yet - it is not in the list - so it
+        // draws without one rather than under a #0 that would then change on release.
+        string id = measurement.Id > 0
+            ? string.Create(CultureInfo.InvariantCulture, $"#{measurement.Id} ")
+            : string.Empty;
+
         if (measurement.Kind == MeasurementKind.Distance)
         {
             return string.Create(
-                CultureInfo.InvariantCulture, $"{measurement.LengthMillimetres:0.0} mm");
+                CultureInfo.InvariantCulture, $"{id}{measurement.LengthMillimetres:0.0} mm");
         }
 
         string area = string.Create(
-            CultureInfo.InvariantCulture, $"{measurement.AreaSquareMillimetres:0.0} mm²");
+            CultureInfo.InvariantCulture, $"{id}{measurement.AreaSquareMillimetres:0.0} mm²");
 
         RoiStatistics statistics = RoiStatistics.Compute(measurement, volume);
 
@@ -843,7 +849,7 @@ public partial class ViewportControl : UserControl
 
         if (drawn.LengthMillimetres >= shell.PixelSizeMillimetres)
         {
-            shell.Measurements.Add(drawn);
+            shell.AddMeasurement(drawn);
         }
         else
         {

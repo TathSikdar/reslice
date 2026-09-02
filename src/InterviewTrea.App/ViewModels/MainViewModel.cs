@@ -60,6 +60,13 @@ public sealed partial class MainViewModel : ObservableObject
             {
                 Hovered = null;
             }
+
+            // Numbering restarts once the list is empty. Carrying on from #7 into a new
+            // series would suggest six measurements had been made on it and lost.
+            if (Measurements.Count == 0)
+            {
+                nextId = 0;
+            }
         };
     }
 
@@ -258,6 +265,18 @@ public sealed partial class MainViewModel : ObservableObject
     /// stored twice or kept in step.
     /// </remarks>
     public ObservableCollection<Measurement> Measurements { get; } = [];
+
+    /// <summary>
+    /// FR-410. Adds a measurement under the next identifier. The only way one should enter
+    /// the list, so that nothing on screen or in an export is ever unnumbered.
+    /// </summary>
+    public void AddMeasurement(Measurement measurement)
+    {
+        ArgumentNullException.ThrowIfNull(measurement);
+        Measurements.Add(measurement with { Id = ++nextId });
+    }
+
+    private int nextId;
 
     /// <summary>Which shape the left button draws. None leaves the navigation gestures alone.</summary>
     [ObservableProperty]

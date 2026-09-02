@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using InterviewTrea.Core.Geometry;
 using InterviewTrea.Core.Reslicing;
 
@@ -57,6 +57,31 @@ public sealed record Measurement(
     Point3D Start,
     Point3D End)
 {
+    /// <summary>
+    /// FR-410. Which measurement this is, as shown beside it and exported in the CSV.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Assigned once by whoever adds the measurement to a list and never reused, rather
+    /// than being the position in that list. Deleting the second of three would renumber
+    /// the third into its place, and a CSV row exported before the deletion would then name
+    /// a different measurement than the same number does on screen - the one thing an
+    /// identifier exists to prevent.
+    /// </para>
+    /// <para>
+    /// An init-only property rather than a positional parameter, so the identity of a
+    /// measurement is not part of its value: two measurements of the same thing are equal
+    /// as geometry, and `with` carries the number through an edit unchanged.
+    /// </para>
+    /// <para>
+    /// DICOM has no standard for this. What it standardises is storage and exchange -
+    /// Structured Reporting (TID 1500/300) and Presentation States, which carry an optional
+    /// free-text label and say nothing about what a viewer draws. A stable sequential
+    /// number is convention, not conformance.
+    /// </para>
+    /// </remarks>
+    public int Id { get; init; }
+
     /// <summary>Straight-line distance in millimetres (FR-401).</summary>
     public double LengthMillimetres => (End - Start).Length;
 

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
@@ -34,7 +34,7 @@ public static class MeasurementCsv
         "# RESEARCH AND DEMONSTRATION USE ONLY - NOT A MEDICAL DEVICE. NOT FOR DIAGNOSTIC USE.";
 
     public const string Header =
-        "kind,start_x_mm,start_y_mm,start_z_mm,end_x_mm,end_y_mm,end_z_mm," +
+        "id,kind,start_x_mm,start_y_mm,start_z_mm,end_x_mm,end_y_mm,end_z_mm," +
         "normal_x,normal_y,normal_z,length_mm,area_mm2,voxels,mean_hu,sd_hu,min_hu,max_hu";
 
     /// <summary>
@@ -53,6 +53,7 @@ public static class MeasurementCsv
 
         foreach (Measurement measurement in measurements)
         {
+            csv.Append(measurement.Id.ToString(CultureInfo.InvariantCulture)).Append(',');
             csv.Append(measurement.Kind).Append(',');
             Append(csv, measurement.Start);
             Append(csv, measurement.End);

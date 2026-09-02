@@ -316,6 +316,7 @@ FR-208 is the one people miss. If your voxels are 3 mm apart in Z and 0.7 mm in-
 | FR-407 | The system shall support deleting an individual measurement and clearing all. |
 | FR-408 | The system shall export the measurement list to CSV. |
 | FR-409 | The system shall export the active viewport as a PNG with the RQ-1 disclaimer burned into the image. |
+| FR-410 | Each measurement shall carry a stable identifier, shown beside it and exported with it. |
 
 ### FR-500 — Application platform (plugin host)
 

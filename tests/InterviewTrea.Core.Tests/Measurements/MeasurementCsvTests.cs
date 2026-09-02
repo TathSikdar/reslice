@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Globalization;
 using System.Linq;
 using System.Threading;
@@ -25,7 +25,10 @@ public sealed class MeasurementCsvTests
     private static Measurement On(MeasurementKind kind, Point3D start, Point3D end)
     {
         (Vector3D row, Vector3D column) = ReslicePlane.DisplayAxes(PlaneOrientation.Axial);
-        return new Measurement(kind, new MeasurementFrame(start, row, column), start, end);
+        return new Measurement(kind, new MeasurementFrame(start, row, column), start, end)
+        {
+            Id = 7,
+        };
     }
 
     private static string[] RowsOf(string csv) =>
@@ -88,14 +91,15 @@ public sealed class MeasurementCsvTests
 
         string[] fields = Fields(row);
 
-        fields[0].Should().Be("Distance");
-        fields[4..7].Should().Equal("3", "4", "12");
+        fields[0].Should().Be("7");
+        fields[1].Should().Be("Distance");
+        fields[5..8].Should().Equal("3", "4", "12");
 
         // The axial display normal, which is what says the plane this was drawn on.
-        fields[7..10].Should().Equal("0", "0", "1");
+        fields[8..11].Should().Equal("0", "0", "1");
 
-        fields[10].Should().Be("13");
-        fields[11..].Should().AllBe(string.Empty);
+        fields[11].Should().Be("13");
+        fields[12..].Should().AllBe(string.Empty);
     }
 
     /// <summary>
@@ -113,15 +117,15 @@ public sealed class MeasurementCsvTests
 
         string[] fields = Fields(row);
 
-        fields[0].Should().Be("Rectangle");
+        fields[1].Should().Be("Rectangle");
         // sqrt(116) = 10.7703..., to three decimals.
-        fields[10].Should().Be("10.77");
-        fields[11].Should().Be("40");
+        fields[11].Should().Be("10.77");
         fields[12].Should().Be("40");
         fields[13].Should().Be("40");
-        fields[14].Should().Be("0");
-        fields[15].Should().Be("40");
+        fields[14].Should().Be("40");
+        fields[15].Should().Be("0");
         fields[16].Should().Be("40");
+        fields[17].Should().Be("40");
     }
 
     /// <summary>
@@ -150,6 +154,6 @@ public sealed class MeasurementCsvTests
         worker.Start();
         worker.Join();
 
-        Fields(row)[4].Should().Be("1.5");
+        Fields(row)[5].Should().Be("1.5");
     }
 }
