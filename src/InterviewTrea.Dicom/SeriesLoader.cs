@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -32,10 +32,10 @@ public sealed record DirectoryScan(
 /// </summary>
 /// <remarks>
 /// <para>
-/// FR-102 says to prompt the user when a directory holds more than one series. There is
-/// no user interface in this iteration, so the loader returns every candidate it found
-/// and leaves the choosing to the caller. That keeps the loader a pure function of the
-/// file system, which is worth more than the prompt.
+/// FR-102 says to prompt the user when a directory holds more than one series. The loader
+/// returns every candidate it found, largest first, and leaves the choosing to the caller
+/// - which keeps it a pure function of the file system. The App layer puts the question
+/// to the user through <c>ISeriesPrompt</c>.
 /// </para>
 /// <para>
 /// Nothing here reads pixel data. A TCIA download is routinely a few hundred megabytes,

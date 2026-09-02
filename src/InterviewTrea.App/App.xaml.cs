@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Windows;
 using InterviewTrea.Dicom;
@@ -29,6 +29,8 @@ public partial class App : Application
         builder.Services.AddSingleton<SeriesLoader>();
         builder.Services.AddSingleton<GeometryValidator>();
         builder.Services.AddSingleton<VolumeBuilder>();
+
+        builder.Services.AddSingleton<ISeriesPrompt, Views.SeriesPrompt>();
 
         builder.Services.AddSingleton<ViewModels.MainViewModel>();
         builder.Services.AddSingleton<MainWindow>();

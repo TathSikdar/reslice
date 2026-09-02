@@ -192,6 +192,43 @@
         chrome in the toggle button and popup, and Background/Foreground setters do not
         reach it - the control would stay white on an otherwise black reading room.
     -->
+    <!--
+        FR-102's series picker, and nothing else so far. Deliberately plain: it is a list
+        you read once when a folder holds more than one series, and it should look like the
+        rest of the chrome rather than like part of the image.
+    -->
+    <Style x:Key="Style.ListBox" TargetType="ListBox">
+        <Setter Property="Background" Value="{StaticResource Brush.Panel}" />
+        <Setter Property="Foreground" Value="{StaticResource Brush.Text.Primary}" />
+        <Setter Property="BorderBrush" Value="{StaticResource Brush.Border}" />
+        <Setter Property="BorderThickness" Value="{StaticResource Thickness.Hairline}" />
+    </Style>
+
+    <Style x:Key="Style.ListBoxItem" TargetType="ListBoxItem">
+        <Setter Property="Foreground" Value="{StaticResource Brush.Text.Primary}" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Padding" Value="{StaticResource Thickness.Control}" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ListBoxItem">
+                    <Border x:Name="Row" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
+                        <ContentPresenter />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Row" Property="Background" Value="{StaticResource Brush.Border}" />
+                        </Trigger>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter TargetName="Row" Property="Background" Value="{StaticResource Brush.Border}" />
+                            <Setter Property="Foreground" Value="{StaticResource Brush.Accent}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <Style x:Key="Style.ComboBox" TargetType="ComboBox">
         <Setter Property="Background" Value="{StaticResource Brush.Panel}" />
         <Setter Property="Foreground" Value="{StaticResource Brush.Text.Primary}" />

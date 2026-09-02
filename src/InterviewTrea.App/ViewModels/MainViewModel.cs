@@ -30,12 +30,15 @@ public sealed partial class MainViewModel : ObservableObject
     private readonly SeriesLoader loader;
     private readonly GeometryValidator validator;
     private readonly VolumeBuilder builder;
+    private readonly ISeriesPrompt prompt;
 
-    public MainViewModel(SeriesLoader loader, GeometryValidator validator, VolumeBuilder builder)
+    public MainViewModel(
+        SeriesLoader loader, GeometryValidator validator, VolumeBuilder builder, ISeriesPrompt prompt)
     {
         this.loader = loader;
         this.validator = validator;
         this.builder = builder;
+        this.prompt = prompt;
 
         Viewports =
         [
@@ -477,21 +480,37 @@ public sealed partial class MainViewModel : ObservableObject
 
         try
         {
+            // Two background passes with a decision between them, rather than one. The scan
+            // is header-only and has to finish before there is anything to choose from; the
+            // prompt has to run on the UI thread; the build is the expensive half and must
+            // not start until the choice is made. Splitting them is what lets all three be
+            // true at once (FR-102, FR-108).
+            DirectoryScan scan = await Task.Run(() => loader.Scan(directory, scanning))
+                .ConfigureAwait(true);
+
+            if (scan.Series.Count == 0)
+            {
+                throw new SeriesRejectedException(
+                    SeriesRejectionReason.TooFewSlices,
+                    "No DICOM series was found in that folder.");
+            }
+
+            // FR-102. One series opens without asking; several put the question to the user,
+            // largest first, which is the series the viewer used to take silently.
+            SeriesDescriptor? chosen = scan.Series.Count == 1
+                ? scan.Series[0]
+                : prompt.Choose(scan.Series);
+
+            if (chosen is not SeriesDescriptor series)
+            {
+                // Cancelled. Whatever was already loaded stays exactly as it was: an
+                // abandoned open is not a reason to take the previous study off screen.
+                Status = "Load cancelled.";
+                return;
+            }
+
             VolumeBuildResult result = await Task.Run(() =>
             {
-                DirectoryScan scan = loader.Scan(directory, scanning);
-
-                if (scan.Series.Count == 0)
-                {
-                    throw new SeriesRejectedException(
-                        SeriesRejectionReason.TooFewSlices,
-                        "No DICOM series was found in that folder.");
-                }
-
-                // FR-102 asks for a prompt when several series are present. The picker is
-                // not in the approved control set, so the largest wins and the status line
-                // says how many were passed over.
-                SeriesDescriptor series = scan.Series[0];
                 SeriesGeometry geometry = validator.Validate(series.Slices);
 
                 return builder.Build(series, geometry, decoding);
