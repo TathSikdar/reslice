@@ -21,7 +21,7 @@ namespace InterviewTrea.Core.Volumes;
 /// take a percentage from.
 /// </para>
 /// </remarks>
-public sealed class Histogram
+public sealed class VolumeHistogram
 {
     /// <summary>Low edge of the first bin.</summary>
     public const int Minimum = -1024;
@@ -31,7 +31,7 @@ public sealed class Histogram
 
     private readonly int[] counts;
 
-    private Histogram(int binWidth, int[] counts, long total)
+    private VolumeHistogram(int binWidth, int[] counts, long total)
     {
         BinWidth = binWidth;
         this.counts = counts;
@@ -57,7 +57,7 @@ public sealed class Histogram
     /// Hounsfield units per bin. Must divide the 4096-unit scale evenly, so that a bin
     /// edge is a round number and the last bin is the same width as the rest.
     /// </param>
-    public static Histogram Compute(Volume volume, int binWidth = 16)
+    public static VolumeHistogram Compute(Volume volume, int binWidth = 16)
     {
         ArgumentNullException.ThrowIfNull(volume);
 
@@ -79,7 +79,7 @@ public sealed class Histogram
             counts[bin]++;
         }
 
-        Histogram histogram = new(binWidth, counts, voxels.LongLength);
+        VolumeHistogram histogram = new(binWidth, counts, voxels.LongLength);
 
         foreach (int count in counts)
         {

@@ -12,7 +12,7 @@ namespace InterviewTrea.Core.Tests.Volumes;
 /// than read back from a run: a histogram that is wrong by one bin looks entirely
 /// plausible drawn as bars, which is exactly why the numbers have to be checked.
 /// </summary>
-public sealed class HistogramTests
+public sealed class VolumeHistogramTests
 {
     /// <summary>
     /// 40 HU with 16-unit bins: (40 + 1024) / 16 = 66.5, so bin 66, which covers
@@ -24,7 +24,7 @@ public sealed class HistogramTests
         Volume volume = Phantoms.Uniform(
             Phantoms.SoftTissue, dimX: 8, dimY: 8, dimZ: 4, spacing: Phantoms.IsotropicSpacing);
 
-        Histogram histogram = Histogram.Compute(volume, binWidth: 16);
+        VolumeHistogram histogram = VolumeHistogram.Compute(volume, binWidth: 16);
 
         histogram.Total.Should().Be(256);
         histogram.Counts[66].Should().Be(256);
@@ -46,7 +46,7 @@ public sealed class HistogramTests
         Volume volume = Phantoms.GradientAlongX(
             startHounsfield: 0, hounsfieldPerVoxel: 64, dimX: 8, dimY: 4, dimZ: 2);
 
-        Histogram histogram = Histogram.Compute(volume, binWidth: 64);
+        VolumeHistogram histogram = VolumeHistogram.Compute(volume, binWidth: 64);
 
         // 0 HU sits in bin (0 + 1024) / 64 = 16, and the eight columns run 0, 64 ... 448 HU
         // into bins 16 through 23.
@@ -72,7 +72,7 @@ public sealed class HistogramTests
         Volume volume = Phantoms.Uniform(
             -2048, dimX: 4, dimY: 4, dimZ: 2, spacing: Phantoms.IsotropicSpacing);
 
-        Histogram histogram = Histogram.Compute(volume, binWidth: 16);
+        VolumeHistogram histogram = VolumeHistogram.Compute(volume, binWidth: 16);
 
         histogram.Counts[0].Should().Be(32);
         histogram.Total.Should().Be(32);
@@ -92,7 +92,7 @@ public sealed class HistogramTests
         Volume volume = Phantoms.Uniform(
             Phantoms.SoftTissue, dimX: 2, dimY: 2, dimZ: 2, spacing: Phantoms.IsotropicSpacing);
 
-        Action compute = () => Histogram.Compute(volume, binWidth);
+        Action compute = () => VolumeHistogram.Compute(volume, binWidth);
 
         compute.Should().Throw<ArgumentOutOfRangeException>();
     }
