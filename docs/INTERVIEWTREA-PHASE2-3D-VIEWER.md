@@ -1,4 +1,4 @@
-# InterviewTrea — Phase 2: 3D Volume Rendering
+﻿# InterviewTrea — Phase 2: 3D Volume Rendering
 
 > **RESEARCH AND DEMONSTRATION USE ONLY — NOT A MEDICAL DEVICE. NOT FOR DIAGNOSTIC USE.**
 
@@ -205,14 +205,21 @@ nearly transparent), and skip shading entirely during interaction.
 | FR-607 | Gradient-based Phong shading shall be applied, with normals from central differences, and shall be toggleable. |
 | FR-608 | Left-drag shall orbit the camera; wheel shall zoom; middle-drag shall pan. The projection shall be orthographic. |
 | FR-609 | The renderer shall refine progressively: a reduced-resolution image while the camera or transfer function is moving, full resolution when interaction stops. |
-| FR-610 | The 3D view shall be selectable as a layout, and shall be exportable as a PNG under FR-409 like any other view. |
+| FR-610 | The 3D view shall be selectable as a mode of the fourth pane, and shall be exportable as a PNG under FR-409 like any other view. |
 | FR-611 | The 3D view shall show no measurement or Hounsfield readout (RQ-5). |
 | FR-612 | With no volume loaded the 3D view shall show the same calm empty state as the MPR panes, not a blank or an error. |
 
-**FR-610 needs a visible control that does not exist yet** — a layout selector. Per Phase 1
-§1.6 that has to be agreed before it is built. The proposal is a single toolbar dropdown
-with three entries: `2×2 MPR`, `3D`, and `MPR + 3D` (the 3D view taking the slab pane's
-cell). One control, three states, each explainable in a sentence.
+**FR-610 no longer needs a new control.** It was specified as a layout selector, which
+would have been a ninth visible control whose only job is to rearrange the other eight.
+Phase 1 §1.6 rules that out, so the 3D view became a fourth entry in the dropdown that
+already chooses what that pane shows: *MIP · MinIP · Average · 3D*. All four answer the
+same shape of question - what is along this direction, rather than what is at this plane.
+See [ADR-006](decisions/ADR-006.md).
+
+Two controls do arrive with Phase 2, and both are visible only while the 3D view is up: a
+preset dropdown and a shading checkbox. FR-606's draggable control points are **deferred**
+- the presets are the demo need, and an editor is the one feature §1.6 names as able to
+grow without limit.
 
 ---
 

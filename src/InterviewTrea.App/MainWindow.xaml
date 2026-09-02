@@ -2,6 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:views="clr-namespace:InterviewTrea.App.Views"
         xmlns:windowing="clr-namespace:InterviewTrea.Rendering.Windowing;assembly=InterviewTrea.Rendering"
+        xmlns:rendering3d="clr-namespace:InterviewTrea.Rendering3D;assembly=InterviewTrea.Rendering3D"
         xmlns:core="clr-namespace:InterviewTrea.Core;assembly=InterviewTrea.Core"
         x:Class="InterviewTrea.App.MainWindow"
         Title="InterviewTrea"
@@ -20,6 +21,14 @@
         -->
         <DataTemplate x:Key="Template.WindowPreset">
             <TextBlock Text="{Binding Name}" />
+        </DataTemplate>
+
+        <DataTemplate x:Key="Template.PaneMode">
+            <TextBlock Text="{Binding Name}" />
+        </DataTemplate>
+
+        <DataTemplate x:Key="Template.VolumePreset">
+            <TextBlock Text="{Binding Key}" />
         </DataTemplate>
     </Window.Resources>
 
@@ -111,17 +120,54 @@
                           DisplayMemberPath="Name"
                           SelectionChanged="OnExportPng" />
 
-                <!-- FR-207. Thickness is Shift+wheel over the slab pane, shown in its overlay. -->
+<!--
+                    FR-207 and FR-610. One control for the fourth pane: the three slab
+                    projections and the 3D view. The 3D view is a mode of that pane rather
+                    than a layout, because it answers the same kind of question the
+                    projections do, so Phase 2 adds no new chrome here. Slab thickness is
+                    Shift+wheel over the pane, shown in its own overlay.
+                -->
                 <ComboBox DockPanel.Dock="Right"
                           Width="110"
                           Style="{StaticResource Style.ComboBox}"
-                          ItemsSource="{Binding SlabModes, RelativeSource={RelativeSource AncestorType=Window}}"
-                          SelectedItem="{Binding SlabMode}" />
+                          ItemsSource="{Binding PaneModes}"
+                          ItemTemplate="{StaticResource Template.PaneMode}"
+                          SelectedItem="{Binding PaneMode}" />
 
                 <TextBlock DockPanel.Dock="Right"
                            Text="Slab:"
                            Margin="0,0,8,0"
                            Style="{StaticResource Style.Label}" />
+
+                <!--
+                    FR-605 and FR-607. Only meaningful while the 3D view is up, so they are
+                    only there while it is: a shading checkbox beside a MIP is a control
+                    that does nothing, which is worse than one that is missing. Two controls
+                    and no more - a transfer function editor can grow without limit, and
+                    Phase 2 section 1.6 says four presets or fewer.
+                -->
+                <CheckBox DockPanel.Dock="Right"
+                          Content="Shading"
+                          Margin="0,0,16,0"
+                          Style="{StaticResource Style.CheckBox}"
+                          IsChecked="{Binding IsVolumeShaded}"
+                          Visibility="{Binding IsVolumeView, Converter={StaticResource BoolToVisibility}}" />
+
+                <ComboBox DockPanel.Dock="Right"
+                          Width="90"
+                          Margin="0,0,8,0"
+                          Style="{StaticResource Style.ComboBox}"
+                          ItemsSource="{x:Static rendering3d:TransferFunctionPreset.All}"
+                          ItemTemplate="{StaticResource Template.VolumePreset}"
+                          SelectedValuePath="Value"
+                          SelectedValue="{Binding VolumePreset}"
+                          Visibility="{Binding IsVolumeView, Converter={StaticResource BoolToVisibility}}" />
+
+                <TextBlock DockPanel.Dock="Right"
+                           Text="Preset:"
+                           Margin="0,0,8,0"
+                           Style="{StaticResource Style.Label}"
+                           Visibility="{Binding IsVolumeView, Converter={StaticResource BoolToVisibility}}" />
 
                 <ComboBox DockPanel.Dock="Right"
                           Width="140"
@@ -180,7 +226,19 @@
             <views:ViewportControl x:Name="SlabPane" Grid.Row="1" Grid.Column="1"
                                    Margin="{StaticResource Thickness.ViewportGap}"
                                    DataContext="{Binding Viewports[3]}"
+                                   Visibility="{Binding IsSlabView, Converter={StaticResource BoolToVisibility}}"
                                    Shell="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}" />
+
+            <!--
+                FR-601. The same cell as the slab pane, one of the two visible at a time.
+                A separate control rather than a mode of ViewportControl: it shares no
+                geometry with a reslice plane, has no crosshair, and shows no measurement
+                or Hounsfield readout at all (RQ-5, FR-611).
+            -->
+            <views:VolumeViewControl x:Name="VolumePane" Grid.Row="1" Grid.Column="1"
+                                     Margin="{StaticResource Thickness.ViewportGap}"
+                                     Visibility="{Binding IsVolumeView, Converter={StaticResource BoolToVisibility}}"
+                                     Shell="{Binding}" />
 
             <!-- Covers the grid entirely while there is nothing to show. -->
             <Border Grid.Row="0" Grid.Column="0" Grid.RowSpan="2" Grid.ColumnSpan="2"

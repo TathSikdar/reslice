@@ -37,14 +37,10 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// The FR-207 dropdown's items. An instance property rather than a static one because
-    /// a WPF binding path resolves against the source object, and a static CLR property is
-    /// not on that path.
+    /// The FR-401 to FR-404 tool dropdown's items. An instance property rather than a
+    /// static one because a WPF binding path resolves against the source object, and a
+    /// static CLR property is not on that path.
     /// </summary>
-    public IReadOnlyList<SlabMode> SlabModes { get; } =
-        [SlabMode.Maximum, SlabMode.Minimum, SlabMode.Average];
-
-    /// <summary>The FR-401 to FR-404 tool dropdown's items, for the same binding reason.</summary>
     public IReadOnlyList<MeasurementTool> MeasurementTools { get; } =
     [
         MeasurementTool.None,
@@ -173,8 +169,14 @@ public partial class MainWindow : Window
             return;
         }
 
-        FrameworkElement? source = target.Viewport is null
-            ? ViewportGrid
+        // The fourth entry names a cell, not a control: two things share that cell and the
+        // export has to take whichever one is actually on screen. Capturing the hidden one
+        // would write out a stale bitmap, which is the one failure an export must not have.
+        bool fourthPaneIs3D = viewModel.IsVolumeView
+            && ReferenceEquals(target.Viewport, viewModel.Viewports[3]);
+
+        FrameworkElement? source = target.Viewport is null ? ViewportGrid
+            : fourthPaneIs3D ? VolumePane.Host
             : PaneFor(target.Viewport)?.Host;
 
         if (source is null)
@@ -182,7 +184,8 @@ public partial class MainWindow : Window
             return;
         }
 
-        string name = target.Name.Replace(' ', '-').ToLowerInvariant();
+        string name = (fourthPaneIs3D ? "3D" : target.Name)
+            .Replace(" / ", "-").Replace(' ', '-').ToLowerInvariant();
 
         Microsoft.Win32.SaveFileDialog dialog = new()
         {

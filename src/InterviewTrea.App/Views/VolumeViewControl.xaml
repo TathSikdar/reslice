@@ -1,0 +1,48 @@
+﻿<UserControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="InterviewTrea.App.Views.VolumeViewControl"
+             x:Name="Root">
+
+    <Border x:Name="Host"
+            Background="{StaticResource Brush.Viewport}"
+            BorderBrush="{StaticResource Brush.Border}"
+            BorderThickness="{StaticResource Thickness.Hairline}"
+            ClipToBounds="True"
+            Focusable="True"
+            SizeChanged="OnHostSizeChanged"
+            MouseWheel="OnMouseWheel"
+            MouseDown="OnMouseDown"
+            MouseMove="OnMouseMove"
+            MouseUp="OnMouseUp">
+
+        <Grid>
+            <!--
+                Stretch is Fill and the bitmap is made at the pane's own aspect ratio, so
+                the two agree and nothing is distorted. There is no fit-zoom-pan matrix as
+                there is on an MPR pane: zoom is the camera's view height in millimetres
+                and pan moves its target, so both happen in patient space before the ray is
+                cast rather than to the pixels afterwards.
+            -->
+            <Image x:Name="VolumeImage" Stretch="Fill" />
+
+            <TextBlock Text="3D"
+                       Style="{StaticResource Style.Overlay}"
+                       HorizontalAlignment="Left" VerticalAlignment="Top"
+                       Margin="{StaticResource Thickness.Overlay}" />
+
+            <!--
+                RQ-5 and FR-611. There is deliberately no position, no Hounsfield value and
+                no measurement here: a number read off a composited image is a function of
+                the transfer function as much as of the patient. What the overlay does say
+                is which classification produced the picture, because that is the thing a
+                reader needs to know to interpret it at all.
+            -->
+            <StackPanel HorizontalAlignment="Left" VerticalAlignment="Bottom"
+                        Margin="{StaticResource Thickness.Overlay}">
+                <TextBlock Text="{Binding PresetLabel, ElementName=Root}" Style="{StaticResource Style.Overlay}" />
+                <TextBlock Text="{Binding QualityLabel, ElementName=Root}" Style="{StaticResource Style.Overlay}"
+                           Foreground="{StaticResource Brush.Text.Secondary}" />
+            </StackPanel>
+        </Grid>
+    </Border>
+</UserControl>

@@ -12,6 +12,7 @@ using InterviewTrea.Core.Volumes;
 using InterviewTrea.Dicom;
 using InterviewTrea.Rendering.Reslicing;
 using InterviewTrea.Rendering.Windowing;
+using InterviewTrea.Rendering3D;
 
 namespace InterviewTrea.App.ViewModels;
 
@@ -60,8 +61,10 @@ public sealed partial class MainViewModel : ObservableObject
             new ExportTarget("Axial", Viewports[0]),
             new ExportTarget("Coronal", Viewports[1]),
             new ExportTarget("Sagittal", Viewports[2]),
-            new ExportTarget("Slab", Viewports[3]),
+            new ExportTarget("Slab / 3D", Viewports[3]),
         ];
+
+        PaneMode = PaneModes[0];
 
 
         // The window's field initializer assigns the backing field directly, so it never
@@ -203,6 +206,11 @@ public sealed partial class MainViewModel : ObservableObject
         SetCrosshair(Centre(loaded));
         ResetVersion++;
 
+        // FR-310 reaches the 3D view too. An orbit is view state in exactly the way zoom
+        // and pan are, and a reset that left the volume spun round would leave the one
+        // pane still showing what the user asked to undo.
+        Camera = Camera3D.Framing(loaded);
+
         // After the crosshair, because SetCrosshair is what re-cuts the panes with the
         // restored axes. This is what tells a pane whose own plane did not move to redraw
         // the arms of the two that did.
@@ -245,6 +253,59 @@ public sealed partial class MainViewModel : ObservableObject
 
     [ObservableProperty]
     private SlabMode slabMode = SlabMode.Maximum;
+
+    /// <summary>FR-610. What the fourth pane shows, the 3D view included.</summary>
+    public IReadOnlyList<PaneMode> PaneModes { get; } =
+    [
+        new PaneMode("MIP", SlabMode.Maximum),
+        new PaneMode("MinIP", SlabMode.Minimum),
+        new PaneMode("Average", SlabMode.Average),
+        new PaneMode("3D", null),
+    ];
+
+    // Set in the constructor rather than initialised here, so PaneModes is the only place
+    // the list exists and the default is an element of it rather than a second copy.
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsVolumeView))]
+    [NotifyPropertyChangedFor(nameof(IsSlabView))]
+    private PaneMode paneMode = null!;
+
+    /// <summary>Whether the fourth pane is the 3D view (FR-601).</summary>
+    public bool IsVolumeView => PaneMode.IsVolume;
+
+    /// <summary>The complement, so both controls can bind without an inverting converter.</summary>
+    public bool IsSlabView => !PaneMode.IsVolume;
+
+    partial void OnPaneModeChanged(PaneMode value)
+    {
+        // The slab mode keeps its last projection while the 3D view is up, so switching
+        // back returns to what was on screen rather than to MIP.
+        if (value.Slab is SlabMode slab)
+        {
+            SlabMode = slab;
+        }
+    }
+
+    /// <summary>
+    /// The 3D camera (FR-608). Null until a volume is loaded, which is what the 3D view's
+    /// FR-612 empty state turns on.
+    /// </summary>
+    [ObservableProperty]
+    private Camera3D? camera;
+
+    /// <summary>The transfer function the 3D view classifies with (FR-604, FR-605).</summary>
+    [ObservableProperty]
+    private TransferFunction volumePreset = TransferFunctionPreset.Bone;
+
+    /// <summary>Whether the 3D view is gradient-shaded (FR-607).</summary>
+    [ObservableProperty]
+    private bool isVolumeShaded = true;
+
+    // A new study gets a camera framing it, and nothing else would do: the camera is in
+    // patient millimetres, so the previous study's target is a coordinate in someone
+    // else's frame of reference and would point the view at empty space.
+    partial void OnVolumeChanged(Volume? value) =>
+        Camera = value is null ? null : Camera3D.Framing(value);
 
     /// <summary>
     /// One table for all four panes. Rebuilt in place on every window change, so a

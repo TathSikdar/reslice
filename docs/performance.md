@@ -1,4 +1,4 @@
-# Performance (NFR-201 … NFR-203, NFR-304)
+﻿# Performance (NFR-201 … NFR-203, NFR-304)
 
 Every number here came out of `tests/InterviewTrea.Benchmarks`. Nothing in this file is
 estimated, and nothing was measured after an optimization without a matching before.
@@ -143,3 +143,30 @@ window with.
 
 All three NFR-200 targets are met. The two figures that did not move are unchanged code and
 are quoted here only so the table is complete.
+
+## Phase 2 — the 3D view
+
+Measured on LIDC-IDRI-0001: 512 x 512 x 133 at 0.7 x 0.7 x 2.5 mm, so the sampling step is
+0.35 mm (half the finest voxel side). Timed with `Stopwatch` in a Release console harness
+rather than with BenchmarkDotNet, because each measurement is hundreds of milliseconds and
+the run-to-run spread is small next to the budget - the honest description is a
+measurement, not a benchmark, and it is labelled as one.
+
+| Frame | Size | Step | Shading | Time | Budget |
+|---|---|---|---|---|---|
+| Bone, full | 512 x 512 | 0.35 mm | yes | 210 ms | NFR-401: 400 ms |
+| Angio, full | 512 x 512 | 0.35 mm | yes | 217 ms | NFR-401: 400 ms |
+| Lung, full | 512 x 512 | 0.35 mm | yes | 214 ms | NFR-401: 400 ms |
+| Skin, full | 512 x 512 | 0.35 mm | yes | 85 ms | NFR-401: 400 ms |
+| Interaction | 256 x 256 | 1.40 mm | no | 11 ms | NFR-402: 50 ms |
+
+Skin is two and a half times faster than the others for the reason early termination
+exists: it is a surface preset, so almost every ray stops within a few millimetres of the
+skin instead of crossing the whole patient. Lung is the slowest to terminate because
+nothing in it is opaque - the rays run to the far side of the volume - which is visible in
+the numbers rather than only arguable from the code.
+
+The interaction frame is a quarter of the pixels at four times the step, about a sixteenth
+of the work, and it measures at a nineteenth. FR-603's opacity correction is what makes it
+the same picture rather than a lighter one.
+
