@@ -287,11 +287,44 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private TransferFunction volumePreset = TransferFunctionPreset.Bone;
 
+    /// <summary>How far the 3D view is trimmed in from the patient's back (FR-613).</summary>
+    [ObservableProperty]
+    private double clipPosteriorMillimetres;
+
     // A new study gets a camera framing it, and nothing else would do: the camera is in
     // patient millimetres, so the previous study's target is a coordinate in someone
-    // else's frame of reference and would point the view at empty space.
-    partial void OnVolumeChanged(Volume? value) =>
+    // else's frame of reference and would point the view at empty space. The clip goes
+    // back to off for the same reason - it is a depth into a particular patient's box.
+    partial void OnVolumeChanged(Volume? value)
+    {
         Camera = value is null ? null : Camera3D.Framing(value);
+        ClipPosteriorMillimetres = 0;
+    }
+
+    /// <summary>
+    /// FR-613. Slides the 3D view's clip plane in from the patient's back, in whole
+    /// millimetres, bounded by the volume's own anterior-to-posterior span.
+    /// </summary>
+    /// <remarks>
+    /// Linear where slab thickness and zoom are geometric, because this one has a natural
+    /// scale that they do not: what it is usually asked to remove is a scanner table a few
+    /// centimetres behind the patient, so a constant step lands on it in a handful of
+    /// notches and does not accelerate past it.
+    /// </remarks>
+    public void AdjustVolumeClip(int notches)
+    {
+        if (Volume is not Volume loaded)
+        {
+            return;
+        }
+
+        ClipPosteriorMillimetres = Math.Clamp(
+            ClipPosteriorMillimetres + (notches * ClipStepMillimetres),
+            0,
+            VolumeClip.AnteroposteriorSpan(loaded));
+    }
+
+    private const double ClipStepMillimetres = 10.0;
 
     /// <summary>
     /// One table for all four panes. Rebuilt in place on every window change, so a

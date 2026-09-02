@@ -208,6 +208,7 @@ nearly transparent), and skip shading entirely during interaction.
 | FR-610 | The 3D view shall occupy the fourth pane, and shall be exportable as a PNG under FR-409 like any other view. |
 | FR-611 | The 3D view shall show no measurement or Hounsfield readout (RQ-5). |
 | FR-612 | With no volume loaded the 3D view shall show the same calm empty state as the MPR panes, not a blank or an error. |
+| FR-613 | The 3D view shall provide one clip plane, trimming in from the patient's back by a user-set depth, so that the scanner table can be removed. **Added after Iteration 7**, on evidence: see below. |
 
 **FR-610 needs no new control.** It was specified as a layout selector, which would have
 been a ninth visible control whose only job is to rearrange the other eight. Phase 1 §1.6
@@ -219,6 +220,17 @@ See [ADR-006](decisions/ADR-006.md).
 Phase 2 adds exactly one visible control: the preset dropdown. FR-606's draggable control
 points are **deferred** - the presets are the demo need, and an editor is the one feature
 §1.6 names as able to grow without limit.
+
+**FR-613 was added because the first real rendering had a slab of scanner table standing
+behind the patient.** A CT couch reads between about 0 and 100 HU, which is where soft
+tissue reads, so no transfer function can classify it away - classification is by density
+and the table has the patient's density. Finding the body and keeping only that is
+segmentation, which §1.4 rules out by name. What is left is geometry: the table is behind
+the patient and nothing else is, so one plane parallel to the coronal plane separates them.
+It is Shift+wheel over the 3D pane and is reported in that pane's overlay, so it adds no
+visible control; it is one plane and not a six-sided clip box, because a box is a general
+tool and this is a specific one. On a prone study the table is in front of the patient and
+this will not touch it, which is stated rather than half-solved.
 
 ---
 

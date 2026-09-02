@@ -168,6 +168,7 @@ public partial class VolumeViewControl : UserControl, IDisposable
             case nameof(MainViewModel.Volume):
             case nameof(MainViewModel.Camera):
             case nameof(MainViewModel.VolumePreset):
+            case nameof(MainViewModel.ClipPosteriorMillimetres):
                 Refresh();
                 break;
         }
@@ -217,7 +218,11 @@ public partial class VolumeViewControl : UserControl, IDisposable
         // Shading is off whatever the checkbox says: it is six extra trilinear samples per
         // step, and a frame that arrives late is worse than one that arrives flat. It comes
         // back a fifth of a second later when the full frame lands.
-        RaycastSettings settings = RaycastSettings.For(volume, PreviewStepFactor) with { IsShaded = false };
+        RaycastSettings settings = RaycastSettings.For(volume, PreviewStepFactor) with
+        {
+            IsShaded = false,
+            ClipPosteriorMm = shell.ClipPosteriorMillimetres,
+        };
 
         Ensure(ref previewBitmap, ref previewPixels, previewWidth, previewHeight);
 
@@ -247,7 +252,11 @@ public partial class VolumeViewControl : UserControl, IDisposable
             return;
         }
 
-        RaycastSettings settings = RaycastSettings.For(volume) with { IsShaded = true };
+        RaycastSettings settings = RaycastSettings.For(volume) with
+        {
+            IsShaded = true,
+            ClipPosteriorMm = shell.ClipPosteriorMillimetres,
+        };
 
         Ensure(ref fullBitmap, ref fullPixels, width, height);
 
@@ -336,7 +345,12 @@ public partial class VolumeViewControl : UserControl, IDisposable
 
     private void Describe(MainViewModel shell, int width, int height, RaycastSettings settings)
     {
-        SetValue(PresetLabelKey, NameOf(shell.VolumePreset));
+        // The clip is named only while there is one, and in the overlay rather than in a
+        // control, like every other value a gesture moves. A reader has to be able to tell
+        // a rendering with something cut out of it from one without.
+        SetValue(PresetLabelKey, settings.ClipPosteriorMm > 0
+            ? FormattableString.Invariant($"{NameOf(shell.VolumePreset)}  clip {settings.ClipPosteriorMm:0} mm")
+            : NameOf(shell.VolumePreset));
         SetValue(QualityLabelKey, FormattableString.Invariant(
             $"{width}x{height}  step {settings.StepMm:0.00} mm{(isPreview ? "  preview" : string.Empty)}"));
     }
@@ -399,6 +413,16 @@ public partial class VolumeViewControl : UserControl, IDisposable
         }
 
         int notches = e.Delta / Mouse.MouseWheelDeltaForOneLine;
+
+        // FR-613. Shift is the slab thickness gesture on the three planar panes, and this
+        // is the nearest thing the 3D view has to one: both cut away tissue in front of
+        // what you want to see, in millimetres, reported in the pane's own overlay.
+        if (Keyboard.Modifiers.HasFlag(ModifierKeys.Shift))
+        {
+            shell.AdjustVolumeClip(notches);
+            e.Handled = true;
+            return;
+        }
 
         // Multiplicative, so a notch is the same proportional change wherever you already
         // are, and clamped at both ends so the view cannot be driven inside the volume or

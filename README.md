@@ -115,21 +115,30 @@ planes and the crosshair to the middle of the volume.
 Zoom has a floor at fit and pan is bounded, so the image cannot be driven off the pane;
 Reset returns both to fit along with the geometry.
 
-The fourth pane's dropdown reads *MIP · MinIP · Average · 3D*. The last of those replaces
-the slab projection with a volume rendering of the same data: left-drag orbits it,
-wheel zooms, middle-drag pans, and the projection is orthographic because a perspective
-one makes near structures larger, which is the single thing a clinical image must not do.
-While the camera is moving it renders at quarter cost and sharpens a fifth of a second
-after you let go. It carries no measurement and no Hounsfield readout at all — a value
-read off a composited image is a function of the transfer function as much as of the
-patient — and measurement stays in the three planar panes, where it is a fact about one
-plane.
+Shift+wheel over any of the three planar panes opens a slab through it, and the Slab
+dropdown says how the slab is collapsed — MIP, MinIP or Average. Thickness starts at off,
+where each pane is a single plane. While a slab is open no pane offers a Hounsfield value
+or a measurement: a projected pixel is the brightest thing somewhere within the thickness
+and has no one depth, so a number labelled with the crosshair's position would be a number
+about a different point. Scroll the thickness back to zero and both return.
+
+The fourth pane is the volume rendering. Left-drag orbits it, wheel zooms, middle-drag
+pans, and the projection is orthographic because a perspective one makes near structures
+larger, which is the single thing a clinical image must not do. While the camera is moving
+it renders at quarter cost and sharpens a fifth of a second after you let go. It carries no
+measurement and no Hounsfield readout at all — a value read off a composited image is a
+function of the transfer function as much as of the patient.
+
+Shift+wheel in that pane slides a clip plane in from the patient's back, which is how the
+scanner table is removed. It cannot be removed any other way: a CT couch reads between
+about 0 and 100 HU, exactly where soft tissue reads, so no transfer function can hide the
+table without hiding the patient, and separating them by finding the body is segmentation,
+which is a stated non-goal. About 60 mm clears the table on a typical supine chest study.
 
 Visible chrome is the regulatory banner, Open Folder, Reset, the Measure dropdown, Clear,
-Export CSV, and the PNG export with its target dropdown, plus the window dropdown and the
-fourth pane's. The 3D view adds a preset dropdown and a shading checkbox, both visible only
-while it is up. Everything else is a gesture, and every value a gesture changes is shown in
-the pane's own overlay.
+Export CSV, and the PNG export with its target dropdown, plus the window, slab and preset
+dropdowns. Everything else is a gesture, and every value a gesture changes is shown in the
+pane's own overlay.
 
 ```
 InterviewTrea.Core            depends on nothing
@@ -218,6 +227,10 @@ Stated plainly, because a vague limitations section is worse than none.
 - **The 3D view renders at most 512 pixels on its long side** and is stretched to the pane.
   A ray caster costs one march per output pixel, so the bound is on the render rather than
   on how large the window can be dragged.
+- **The clip plane is one plane, and it is the posterior one.** It removes the scanner
+  table on a supine study, which is what it was added for. A prone study puts the table in
+  front of the patient and this will not touch it, and there is no clip on the other two
+  axes — a six-sided clip box is a general tool and this is a specific one.
 - **There is no plugin platform.** One was built in Iteration 5 and removed when the scope
   settled on a viewer and a 3D viewer, because it hosted nothing. It is in the history.
 - **An ROI has grab handles on two corners, not four.** They are the two points the drag

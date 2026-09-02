@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using InterviewTrea.Core.Volumes;
 
 namespace InterviewTrea.Rendering3D;
@@ -11,6 +11,15 @@ public sealed record RaycastSettings
 
     /// <summary>Whether gradient shading is applied (FR-607).</summary>
     public bool IsShaded { get; init; }
+
+    /// <summary>
+    /// How far to trim in from the patient's back, in millimetres; zero is off (FR-613).
+    /// </summary>
+    /// <remarks>
+    /// A depth rather than an absolute plane position, so the same number means the same
+    /// thing on the next study. <see cref="VolumeClip"/> carries the reasoning.
+    /// </remarks>
+    public double ClipPosteriorMm { get; init; }
 
     /// <summary>The lighting constants, when <see cref="IsShaded"/>.</summary>
     public ShadingParameters Shading { get; init; } = ShadingParameters.Default;

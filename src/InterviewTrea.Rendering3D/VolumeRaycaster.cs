@@ -66,6 +66,14 @@ public static class VolumeRaycaster
         // to voxel space once for the whole image. Only the origin changes per pixel.
         Vector3D stepInVoxels = volume.PatientToVoxel.TransformDirection(forward).Scale(settings.StepMm);
 
+        // FR-613. Resolved to an absolute patient y once for the image rather than per ray:
+        // it depends on the volume and the setting, neither of which changes across a frame.
+        // Infinity when the clip is off, so the narrowing below is a compare that never
+        // fires instead of a branch on every ray.
+        double posteriorLimit = settings.ClipPosteriorMm > 0
+            ? VolumeClip.PosteriorExtent(volume) - settings.ClipPosteriorMm
+            : double.PositiveInfinity;
+
         // Rows, not pixels: a row is enough work to cover the cost of scheduling it, and
         // each row writes a disjoint run of the buffer, so nothing is shared.
         // A full-quality frame is hundreds of milliseconds and the camera can move during
@@ -81,7 +89,7 @@ public static class VolumeRaycaster
             {
                 Rgb pixel = Cast(
                     volume, camera.RayOrigin(column, row, width, height), forward, stepInVoxels,
-                    colours, opacities, settings, towardViewer);
+                    colours, opacities, settings, towardViewer, posteriorLimit);
 
                 destination[offset + 0] = pixel.B;
                 destination[offset + 1] = pixel.G;
@@ -100,9 +108,18 @@ public static class VolumeRaycaster
         byte[] colours,
         float[] opacities,
         RaycastSettings settings,
-        Vector3D towardViewer)
+        Vector3D towardViewer,
+        double posteriorLimit)
     {
         if (!RayBox.TryIntersect(volume, origin, direction, out double enter, out double exit))
+        {
+            return Rgb.Black;
+        }
+
+        // FR-613. Applied to the interval rather than tested per sample: a clip plane is a
+        // half-space, and intersecting a half-space with an interval is two compares once
+        // instead of one compare per step.
+        if (!VolumeClip.TryNarrow(origin, direction, posteriorLimit, ref enter, ref exit))
         {
             return Rgb.Black;
         }
