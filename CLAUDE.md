@@ -4,7 +4,7 @@ A Windows desktop CT visualization workstation in C#/WPF. Loads a DICOM series, 
 
 Independent study project. No affiliation with, endorsement by, or code derived from any commercial vendor.
 
-**RESEARCH AND DEMONSTRATION USE ONLY — NOT A MEDICAL DEVICE. NOT FOR DIAGNOSTIC USE.**
+**RESEARCH AND DEMONSTRATION USE ONLY. THIS IS NOT A MEDICAL DEVICE. NOT FOR DIAGNOSTIC USE.**
 
 ## Specifications
 

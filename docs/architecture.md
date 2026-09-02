@@ -1,6 +1,6 @@
 ﻿# Architecture
 
-> **RESEARCH AND DEMONSTRATION USE ONLY — NOT A MEDICAL DEVICE. NOT FOR DIAGNOSTIC USE.**
+> **RESEARCH AND DEMONSTRATION USE ONLY. THIS IS NOT A MEDICAL DEVICE. NOT FOR DIAGNOSTIC USE.**
 
 Four libraries and one executable. The shape of the dependency graph is the whole design:
 every rule below is enforced by something a compiler checks, not by a convention someone

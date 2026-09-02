@@ -1,6 +1,6 @@
 ﻿# InterviewTrea
 
-> **RESEARCH AND DEMONSTRATION USE ONLY — NOT A MEDICAL DEVICE. NOT FOR DIAGNOSTIC USE.**
+> **RESEARCH AND DEMONSTRATION USE ONLY. THIS IS NOT A MEDICAL DEVICE. NOT FOR DIAGNOSTIC USE.**
 
 An independent study project. **No affiliation with, endorsement by, or code derived from
 any commercial vendor.** The name is a pun; nothing here is anyone's product.

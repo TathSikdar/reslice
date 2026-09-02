@@ -53,7 +53,7 @@ Do not build these. Cutting them is a decision you should be able to defend, not
 
 This is not a medical device and must never look like one.
 
-- **RQ-1**: The application shall display a persistent, non-dismissible banner reading: `RESEARCH AND DEMONSTRATION USE ONLY — NOT A MEDICAL DEVICE. NOT FOR DIAGNOSTIC USE.`
+- **RQ-1**: The application shall display a persistent, non-dismissible banner reading: `RESEARCH AND DEMONSTRATION USE ONLY. THIS IS NOT A MEDICAL DEVICE. NOT FOR DIAGNOSTIC USE.`
 - **RQ-2**: The README shall carry the same statement above the fold.
 - **RQ-3**: No output artifact (screenshot export, report) shall be produced without that statement embedded in it.
 - **RQ-4**: The README shall state that the project is an independent study exercise with no affiliation to, endorsement by, or code derived from any commercial vendor.

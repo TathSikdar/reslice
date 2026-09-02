@@ -15,7 +15,7 @@ public static class Disclaimer
     /// The banner text RQ-1 specifies, character for character, em dash included.
     /// </summary>
     public const string Text =
-        "RESEARCH AND DEMONSTRATION USE ONLY — NOT A MEDICAL DEVICE. NOT FOR DIAGNOSTIC USE.";
+        "RESEARCH AND DEMONSTRATION USE ONLY. THIS IS NOT A MEDICAL DEVICE. NOT FOR DIAGNOSTIC USE.";
 
     /// <summary>
     /// The same sentence with the em dash flattened, for files that are read by machines
