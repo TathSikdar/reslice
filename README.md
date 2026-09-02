@@ -1,4 +1,4 @@
-# InterviewTrea
+﻿# InterviewTrea
 
 > **RESEARCH AND DEMONSTRATION USE ONLY — NOT A MEDICAL DEVICE. NOT FOR DIAGNOSTIC USE.**
 
@@ -16,10 +16,15 @@ that is the point of the exercise, not an oversight.
 
 ## Status
 
-**Iteration 3 of 5 complete.** A folder of DICOM becomes a validated `Volume`, or a clear
-typed rejection naming the rule that failed. Four viewports show axial, coronal, sagittal
-and a slab projection of the same patient-space point; clicking in any of them moves the
-other three. All three NFR-200 performance targets are met — see
+**All five iterations complete.** A folder of DICOM becomes a validated `Volume`, or a
+clear typed rejection naming the rule that failed. Four viewports show axial, coronal,
+sagittal and a slab projection of the same patient-space point; clicking in any of them
+moves the other three, and dragging a crosshair arm rotates the reslice frame so the other
+two views re-cut the volume obliquely and live. Distances and ROIs are measured in patient
+millimetres, so anisotropic spacing and plane obliquity are inside the numbers rather than
+applied as a correction afterwards. The viewer hosts pluggable clinical applications: one
+line in the composition root adds one, and there is a reference application in the box.
+All three NFR-200 performance targets are met — see
 [docs/performance.md](docs/performance.md).
 
 ![The 2x2 MPR layout with linked crosshairs](docs/images/mpr-2x2.png)
@@ -38,8 +43,11 @@ committed to this repository, and no patient identifier is displayed in any view
 | 1 | Folder of DICOM to validated `Volume` | Done |
 | 2 | Single axial viewport, scroll, window/level | Done |
 | 3 | 2x2 MPR with linked crosshairs | Done |
-| 4 | Measurement and oblique reslicing | Not started |
-| 5 | Plugin platform and polish | Not started |
+| 4 | Measurement and oblique reslicing | Done |
+| 5 | Plugin platform and polish | Done |
+
+The screenshot above is from Iteration 3 and shows the layout before the measurement
+tools and the applications dock existed.
 
 ## Build and run
 
@@ -89,26 +97,40 @@ every library targets plain `net8.0`, so WPF types are not merely discouraged in
 rendering and geometry code, they do not exist in the compilation.
 
 **Controls.** Left-click or drag sets the crosshair and moves the other three views with
-it. Wheel scrolls that view along its own normal, by the volume's real spacing in that
-direction. Right-drag sets window and level, middle-drag pans, Ctrl+wheel zooms about the
-cursor, Shift+wheel over the slab pane sets its thickness, and double-click maximizes a
-pane or restores the grid. The only visible chrome is the regulatory banner, the Open
-Folder button, and the window and slab dropdowns — everything else is a gesture, and every
-value it changes is shown in the pane's own overlay.
+it; taking hold of a crosshair arm instead rotates the two planes that are not the one you
+are pointing at, which is oblique reslicing. Wheel scrolls that view along its own normal,
+by the volume's real spacing in that direction. Right-drag sets window and level,
+middle-drag pans, Ctrl+wheel zooms about the cursor, Shift+wheel over the slab pane sets
+its thickness, and double-click maximizes a pane or restores the grid.
+
+Selecting a tool from the Measure dropdown gives the left button over to drawing — a
+distance, an elliptical or a rectangular ROI — because one press cannot mean two things.
+The Move tool takes hold of a measurement already drawn: near an end it drags that end,
+anywhere else it slides the whole shape. Hovering a measurement thickens it and Delete
+removes that one; Clear removes them all; Reset returns the frames to the anatomical
+planes and the crosshair to the middle of the volume.
+
+Visible chrome is the regulatory banner, Open Folder, the Applications menu, Reset, the
+Measure dropdown, Clear, the two exports, and the window and slab dropdowns. Everything
+else is a gesture, and every value a gesture changes is shown in the pane's own overlay.
 
 ```
 InterviewTrea.Core            depends on nothing
         ^
         |-- InterviewTrea.Dicom          Core only. fo-dicom appears here and nowhere else.
         |-- InterviewTrea.Rendering      Core only. Produces byte[]. Never System.Windows.*
-        |-- InterviewTrea.Applications.Abstractions   Core only. The plugin contract.          (It. 5)
+        |-- InterviewTrea.Applications.Abstractions   Core only. The plugin contract.
                 ^
+                |-- InterviewTrea.Applications.Histogram  Abstractions only. Reference app.
+                |
                 |-- InterviewTrea.App    depends on everything. Nothing depends on it.
 ```
 
-`Applications.Abstractions` does not exist yet. `InterviewTrea.App` is the only project
-targeting `net8.0-windows`; every other one targets plain `net8.0`, which is what makes
-the rule enforceable rather than aspirational.
+`InterviewTrea.App` is the only project targeting `net8.0-windows`; every other one
+targets plain `net8.0`, which is what makes the rule enforceable rather than aspirational.
+The reference application is the proof: it computes a histogram of the volume and draws a
+marker on every plane without referencing WPF, fo-dicom, a viewport or a bitmap. See
+[docs/architecture.md](docs/architecture.md).
 
 Volume storage is a flat `short[]` of Hounsfield units with x varying fastest. A
 512x512x400 chest study is 200 MB, which is what buys the memory budget; `float` would
@@ -139,6 +161,7 @@ assistance log along with the gap it exposed.
 - [Traceability matrix](docs/traceability.md) — every requirement, its design element, its test
 - [Architecture decisions](docs/decisions/) — one ADR per genuinely contested call
 - [AI assistance log](docs/ai-assistance-log.md) — including where the assistant was wrong and was caught
+- [Architecture](docs/architecture.md) — the layer diagram and the rules that hold it up
 - [Test data setup](docs/data-setup.md)
 - [Performance](docs/performance.md) — the NFR-200 targets, measured, with before and after
 
@@ -168,11 +191,17 @@ Stated plainly, because a vague limitations section is worse than none.
   clips to black under any window, but an ROI covering the corners of the field of view
   would average a number that was never a measurement. This matters for Phase 2, not
   for viewing.
-- **Reslicing is axis-aligned so far.** The renderer takes an arbitrary plane and the
-  geometry for a rotated one is already in place, but nothing rotates it yet: oblique
-  reslicing by dragging a crosshair arm (FR-307) is Iteration 4.
-- **A folder with several series loads the largest without asking.** FR-102 wants a
-  prompt; the picker is not yet in the approved control set.
+- **A plugin ships a view model, not a view.** The shell finds a tool panel's control by
+  type through a data template it owns, so an application cannot yet bring its own. Making
+  that possible means a plugin shipping a WPF resource dictionary, which is a decision
+  worth taking when there is a second application to justify it.
+- **One application runs at a time.** Two of them contributing tool panels to the same
+  dock is a layout question with no obvious answer, and nothing in either phase needs it.
+- **An ROI has grab handles on two corners, not four.** They are the two points the drag
+  that created it passed through. The other two are more arithmetic for little gain.
+- **Overlays draw polylines and text and nothing else.** Every kind added to that contract
+  is a kind the shell must render for every application forever, so the bar is what a
+  clinical overlay actually consists of: an outline and a label.
 - **One optimization is missing an explanation, not a measurement.** Removing a duplicated
   bounds test from the slab loop made it 43% slower, reproducibly, and neither of the two
   hypotheses tested accounts for it. It was reverted and the measurement recorded rather
