@@ -372,7 +372,7 @@
                                    Visibility="Collapsed"
                                    Margin="{TemplateBinding Padding}"
                                    VerticalAlignment="Center"
-                                   Foreground="{StaticResource Brush.Text.Secondary}"
+                                   Foreground="{TemplateBinding Foreground}"
                                    Text="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}" />
 
                         <Popup IsOpen="{TemplateBinding IsDropDownOpen}"

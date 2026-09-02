@@ -155,9 +155,20 @@ public partial class MainWindow : Window
     /// grid is captured as one element, gutters included, so the file is the layout someone
     /// was looking at rather than four pictures they would have to reassemble.
     /// </remarks>
-    private void OnExportPng(object sender, RoutedEventArgs e)
+    private void OnExportPng(object sender, SelectionChangedEventArgs e)
     {
-        if (viewModel.Volume is null || viewModel.SelectedExportTarget is not ExportTarget target)
+        if (e.AddedItems.Count == 0 || e.AddedItems[0] is not ExportTarget target)
+        {
+            return;
+        }
+
+        // Straight back to naming itself. The control is an action, not a setting: leaving
+        // an entry selected would claim a target is pending when the export has already
+        // run, and would make the next one two clicks instead of one. Clearing it re-enters
+        // this handler with nothing added, which the guard above absorbs.
+        ExportPngTargets.SelectedItem = null;
+
+        if (viewModel.Volume is null)
         {
             return;
         }

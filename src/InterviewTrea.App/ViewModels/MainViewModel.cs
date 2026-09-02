@@ -63,7 +63,6 @@ public sealed partial class MainViewModel : ObservableObject
             new ExportTarget("Slab", Viewports[3]),
         ];
 
-        SelectedExportTarget = ExportTargets[0];
 
         // The window's field initializer assigns the backing field directly, so it never
         // passes through OnWindowChanged and the dropdown starts out disagreeing with the
@@ -335,11 +334,11 @@ public sealed partial class MainViewModel : ObservableObject
         }
     }
 
-    /// <summary>FR-409. What the PNG export can capture.</summary>
+    /// <summary>
+    /// FR-409. What the PNG export can capture. There is no selected one: the dropdown is
+    /// the button, so picking an entry runs the export rather than storing a preference.
+    /// </summary>
     public IReadOnlyList<ExportTarget> ExportTargets { get; }
-
-    [ObservableProperty]
-    private ExportTarget? selectedExportTarget;
 
     /// <summary>The pane filling the window on its own, or null for the 2x2 grid (FR-203).</summary>
     [ObservableProperty]
