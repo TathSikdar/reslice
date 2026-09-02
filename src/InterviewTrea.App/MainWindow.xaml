@@ -58,6 +58,25 @@
                         Style="{StaticResource Style.Button}"
                         Click="OnOpenFolder" />
 
+                <!--
+                    FR-502. Everything the container was given, in registration order.
+                    Disabled rather than empty when nothing is registered (FR-506).
+                -->
+                <Menu DockPanel.Dock="Left" Style="{StaticResource Style.Menu}" Margin="8,0,0,0">
+                    <MenuItem Header="Applications"
+                              Style="{StaticResource Style.MenuItem}"
+                              IsEnabled="{Binding HasApplications}"
+                              ItemsSource="{Binding Applications}">
+                        <MenuItem.ItemContainerStyle>
+                            <Style TargetType="MenuItem" BasedOn="{StaticResource Style.MenuEntry}">
+                                <Setter Property="Header" Value="{Binding DisplayName}" />
+                                <Setter Property="ToolTip" Value="{Binding Description}" />
+                                <EventSetter Event="Click" Handler="OnLaunchApplication" />
+                            </Style>
+                        </MenuItem.ItemContainerStyle>
+                    </MenuItem>
+                </Menu>
+
                 <!-- FR-310. Anatomical planes, middle of the volume, nothing drawn on it. -->
                 <Button DockPanel.Dock="Left"
                         Content="Reset"
@@ -136,8 +155,14 @@
                      Value="{Binding LoadProgress}"
                      Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibility}}" />
 
+        <Grid Grid.Row="3">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
         <!-- FR-201. Four panes, hairline gutters, no chrome between them. -->
-        <Grid Grid.Row="3" x:Name="ViewportGrid" Background="{StaticResource Brush.Border}">
+        <Grid Grid.Column="0" x:Name="ViewportGrid" Background="{StaticResource Brush.Border}">
             <Grid.RowDefinitions>
                 <RowDefinition Height="*" />
                 <RowDefinition Height="*" />
@@ -180,6 +205,36 @@
                            TextAlignment="Center"
                            HorizontalAlignment="Center"
                            VerticalAlignment="Center" />
+            </Border>
+        </Grid>
+
+            <!--
+                FR-504. The right-hand dock. Present only while an application is running,
+                so the viewer looks exactly as it did before the seam existed when nothing
+                is (FR-506).
+            -->
+            <Border Grid.Column="1"
+                    Width="260"
+                    Background="{StaticResource Brush.Panel}"
+                    BorderBrush="{StaticResource Brush.Border}"
+                    BorderThickness="1,0,0,0"
+                    Visibility="{Binding HasSession, Converter={StaticResource BoolToVisibility}}">
+                <DockPanel>
+                    <DockPanel DockPanel.Dock="Top"
+                               Margin="{StaticResource Thickness.Overlay}"
+                               LastChildFill="False">
+                        <TextBlock DockPanel.Dock="Left"
+                                   Text="{Binding RunningApplication.DisplayName}"
+                                   Style="{StaticResource Style.Label}" />
+                        <Button DockPanel.Dock="Right"
+                                Content="Close"
+                                Style="{StaticResource Style.Button}"
+                                Click="OnCloseApplication" />
+                    </DockPanel>
+
+                    <!-- The template comes from Views/ApplicationPanels.xaml, found by type. -->
+                    <ContentControl Content="{Binding Session.ToolPanelViewModel}" />
+                </DockPanel>
             </Border>
         </Grid>
     </Grid>

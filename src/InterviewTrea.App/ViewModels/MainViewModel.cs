@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
+using InterviewTrea.Applications.Abstractions;
 using InterviewTrea.Core.Geometry;
 using InterviewTrea.Core.Measurements;
 using InterviewTrea.Core.Reslicing;
@@ -33,12 +34,21 @@ public sealed partial class MainViewModel : ObservableObject
     private readonly ISeriesPrompt prompt;
 
     public MainViewModel(
-        SeriesLoader loader, GeometryValidator validator, VolumeBuilder builder, ISeriesPrompt prompt)
+        SeriesLoader loader,
+        GeometryValidator validator,
+        VolumeBuilder builder,
+        ISeriesPrompt prompt,
+        IEnumerable<IClinicalApplication> applications)
     {
         this.loader = loader;
         this.validator = validator;
         this.builder = builder;
         this.prompt = prompt;
+
+        // FR-502, FR-506. Whatever the container was given, which is allowed to be nothing:
+        // the viewer is a viewer first, and an empty Applications menu is a valid state
+        // rather than a degraded one.
+        Applications = [.. applications];
 
         Viewports =
         [
@@ -73,6 +83,108 @@ public sealed partial class MainViewModel : ObservableObject
                 nextId = 0;
             }
         };
+    }
+
+    /// <summary>
+    /// FR-502. Every clinical application the container knows about, in registration order.
+    /// </summary>
+    public IReadOnlyList<IClinicalApplication> Applications { get; }
+
+    /// <summary>
+    /// FR-506. False when nothing is registered, which greys the menu out rather than
+    /// opening an empty popup. The viewer is a viewer first and this is a valid state.
+    /// </summary>
+    public bool HasApplications => Applications.Count > 0;
+
+    /// <summary>FR-504, FR-505. The running application's session, or null.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasSession))]
+    private IApplicationSession? session;
+
+    /// <summary>Which application that session belongs to, for the menu's checkmark.</summary>
+    [ObservableProperty]
+    private IClinicalApplication? runningApplication;
+
+    public bool HasSession => Session is not null;
+
+    /// <summary>
+    /// FR-502, FR-503. Starts an application against the loaded study, replacing whatever
+    /// was running.
+    /// </summary>
+    /// <remarks>
+    /// One session at a time. Two applications contributing tool panels to the same dock
+    /// is a layout question with no obvious answer, and nothing in Phase 1 or Phase 2 needs
+    /// it - a second application is a different task, not a simultaneous one.
+    /// </remarks>
+    public void Launch(IClinicalApplication application)
+    {
+        ArgumentNullException.ThrowIfNull(application);
+
+        if (Volume is not Volume loaded)
+        {
+            return;
+        }
+
+        CloseApplication();
+
+        // The context is bound to the volume that was loaded when the application started,
+        // which is why opening a new study closes the session rather than re-pointing it:
+        // an application's per-study state was computed from the old one.
+        context = new ShellContext(this, loaded);
+
+        if (!application.CanRun(context))
+        {
+            context = null;
+            Status = $"{application.DisplayName} cannot run on this series.";
+            return;
+        }
+
+        Session = application.Start(context);
+        RunningApplication = application;
+    }
+
+    /// <summary>Ends the running session, if there is one.</summary>
+    public void CloseApplication()
+    {
+        Session?.Dispose();
+        Session = null;
+        RunningApplication = null;
+        context = null;
+    }
+
+    private ShellContext? context;
+
+    /// <summary>
+    /// FR-503. What an application is allowed to see: the study, where the user is looking,
+    /// and what they have measured.
+    /// </summary>
+    /// <remarks>
+    /// A separate object rather than the view model implementing the interface itself. The
+    /// view model's <c>Volume</c> is nullable and its plane can be absent between studies,
+    /// while the contract promises neither - and handing a plugin the view model would hand
+    /// it every setter on the shell along with the three properties it is entitled to.
+    /// </remarks>
+    private sealed class ShellContext : IApplicationContext
+    {
+        private readonly MainViewModel shell;
+
+        public ShellContext(MainViewModel shell, Volume volume)
+        {
+            this.shell = shell;
+            Volume = volume;
+        }
+
+        public Volume Volume { get; }
+
+        public ReslicePlane CurrentPlane =>
+            (shell.Active ?? shell.Viewports[0]).Plane
+            ?? throw new InvalidOperationException("The study was closed while an application was running.");
+
+        public IMeasurementStore Measurements => shell.Measurements;
+
+        public event EventHandler? PlaneChanged;
+
+        internal void RaisePlaneChanged() => PlaneChanged?.Invoke(this, EventArgs.Empty);
     }
 
     /// <summary>The 2x2 layout, in reading order (FR-201).</summary>
@@ -158,6 +270,7 @@ public sealed partial class MainViewModel : ObservableObject
 
         RefreshViewports();
         AxesVersion++;
+        context?.RaisePlaneChanged();
     }
 
     /// <summary>
@@ -383,6 +496,9 @@ public sealed partial class MainViewModel : ObservableObject
         }
 
         OnPropertyChanged(nameof(Crosshair));
+
+        // FR-503. Every plane in the viewer just moved, including the active one.
+        context?.RaisePlaneChanged();
     }
 
     /// <summary>
@@ -530,6 +646,11 @@ public sealed partial class MainViewModel : ObservableObject
             // series and mean nothing at all.
             Measurements.Clear();
 
+            // An application's per-study state was computed from the study that is being
+            // replaced. Leaving it running would show numbers from the previous series
+            // beside the new one's image.
+            CloseApplication();
+
             // Order matters: the panes cannot build a plane before there is a volume, and
             // SetCrosshair is what builds them. Assigning Volume first also lets the view
             // size its bitmaps once, before the first render is asked for.
@@ -562,6 +683,10 @@ public sealed partial class MainViewModel : ObservableObject
 
     private void ClearVolume(string message)
     {
+        // Before the volume, not after: a session holds a context bound to the study that
+        // is about to go away.
+        CloseApplication();
+
         Volume = null;
         Maximized = null;
         Status = message;
