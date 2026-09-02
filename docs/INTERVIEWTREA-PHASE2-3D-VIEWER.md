@@ -202,24 +202,23 @@ nearly transparent), and skip shading entirely during interaction.
 | FR-604 | Classification shall be by an editable transfer function mapping Hounsfield units to colour and opacity, held as a lookup table over the −1024..3071 scale. |
 | FR-605 | The system shall provide named transfer function presets: Bone, Angio, Lung, and Skin. |
 | FR-606 | The user shall be able to edit the transfer function by dragging control points, and the view shall update live. |
-| FR-607 | Gradient-based Phong shading shall be applied, with normals from central differences, and shall be toggleable. |
+| FR-607 | Gradient-based Phong shading shall be applied, with normals from central differences. **Revised:** not toggleable. An unshaded volume rendering is a picture nobody would choose, so the toggle had a right answer and a wrong one, which makes it a default rather than a choice. |
 | FR-608 | Left-drag shall orbit the camera; wheel shall zoom; middle-drag shall pan. The projection shall be orthographic. |
 | FR-609 | The renderer shall refine progressively: a reduced-resolution image while the camera or transfer function is moving, full resolution when interaction stops. |
-| FR-610 | The 3D view shall be selectable as a mode of the fourth pane, and shall be exportable as a PNG under FR-409 like any other view. |
+| FR-610 | The 3D view shall occupy the fourth pane, and shall be exportable as a PNG under FR-409 like any other view. |
 | FR-611 | The 3D view shall show no measurement or Hounsfield readout (RQ-5). |
 | FR-612 | With no volume loaded the 3D view shall show the same calm empty state as the MPR panes, not a blank or an error. |
 
-**FR-610 no longer needs a new control.** It was specified as a layout selector, which
-would have been a ninth visible control whose only job is to rearrange the other eight.
-Phase 1 §1.6 rules that out, so the 3D view became a fourth entry in the dropdown that
-already chooses what that pane shows: *MIP · MinIP · Average · 3D*. All four answer the
-same shape of question - what is along this direction, rather than what is at this plane.
+**FR-610 needs no new control.** It was specified as a layout selector, which would have
+been a ninth visible control whose only job is to rearrange the other eight. Phase 1 §1.6
+rules that out, so the 3D view simply *is* the fourth pane, and the slab projection it
+displaced moved onto the three planar panes - where a slab was always a property of a
+plane rather than a pane of its own. Nothing was lost by the move and one pane was gained.
 See [ADR-006](decisions/ADR-006.md).
 
-Two controls do arrive with Phase 2, and both are visible only while the 3D view is up: a
-preset dropdown and a shading checkbox. FR-606's draggable control points are **deferred**
-- the presets are the demo need, and an editor is the one feature §1.6 names as able to
-grow without limit.
+Phase 2 adds exactly one visible control: the preset dropdown. FR-606's draggable control
+points are **deferred** - the presets are the demo need, and an editor is the one feature
+§1.6 names as able to grow without limit.
 
 ---
 
@@ -299,7 +298,7 @@ the tests say so without anyone looking at the image.
 
 - `GradientShader`: central differences, normalisation, single-headlight Phong (FR-607).
 - The WPF view, the orbit/zoom/pan gestures (FR-608), progressive refinement (FR-609).
-- The layout selector, once the control is agreed (FR-610).
+- The 3D view as the fourth pane, and the slab projection moved to the other three (FR-610, FR-207).
 - The four presets (FR-605) and the transfer function editor (FR-606).
 - Benchmarks against NFR-401 and NFR-402, committed with before-and-after figures.
 

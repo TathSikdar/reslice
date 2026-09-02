@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.ComponentModel;
 using System.Threading;
 using System.Threading.Tasks;
@@ -168,8 +168,6 @@ public partial class VolumeViewControl : UserControl, IDisposable
             case nameof(MainViewModel.Volume):
             case nameof(MainViewModel.Camera):
             case nameof(MainViewModel.VolumePreset):
-            case nameof(MainViewModel.IsVolumeShaded):
-            case nameof(MainViewModel.PaneMode):
                 Refresh();
                 break;
         }
@@ -179,10 +177,7 @@ public partial class VolumeViewControl : UserControl, IDisposable
 
     private void Refresh()
     {
-        // Nothing renders while the pane is hidden. The slab projections and the 3D view
-        // share a cell, so half the time this control is not the one on screen and a render
-        // would be several hundred milliseconds spent on pixels nobody is looking at.
-        if (Shell is not MainViewModel shell || !shell.IsVolumeView)
+        if (Shell is not MainViewModel shell)
         {
             return;
         }
@@ -240,7 +235,7 @@ public partial class VolumeViewControl : UserControl, IDisposable
 
     private void RenderFull()
     {
-        if (Shell is not MainViewModel shell || !shell.IsVolumeView ||
+        if (Shell is not MainViewModel shell ||
             shell.Volume is not Volume volume || shell.Camera is not Camera3D camera)
         {
             return;
@@ -252,7 +247,7 @@ public partial class VolumeViewControl : UserControl, IDisposable
             return;
         }
 
-        RaycastSettings settings = RaycastSettings.For(volume) with { IsShaded = shell.IsVolumeShaded };
+        RaycastSettings settings = RaycastSettings.For(volume) with { IsShaded = true };
 
         Ensure(ref fullBitmap, ref fullPixels, width, height);
 
@@ -341,7 +336,7 @@ public partial class VolumeViewControl : UserControl, IDisposable
 
     private void Describe(MainViewModel shell, int width, int height, RaycastSettings settings)
     {
-        SetValue(PresetLabelKey, NameOf(shell.VolumePreset) + (settings.IsShaded ? "  shaded" : string.Empty));
+        SetValue(PresetLabelKey, NameOf(shell.VolumePreset));
         SetValue(QualityLabelKey, FormattableString.Invariant(
             $"{width}x{height}  step {settings.StepMm:0.00} mm{(isPreview ? "  preview" : string.Empty)}"));
     }

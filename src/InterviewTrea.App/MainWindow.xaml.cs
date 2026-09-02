@@ -33,7 +33,7 @@ public partial class MainWindow : Window
 
         InitializeComponent();
 
-        panes = [AxialPane, CoronalPane, SagittalPane, SlabPane];
+        panes = [AxialPane, CoronalPane, SagittalPane];
     }
 
     /// <summary>
@@ -169,14 +169,10 @@ public partial class MainWindow : Window
             return;
         }
 
-        // The fourth entry names a cell, not a control: two things share that cell and the
-        // export has to take whichever one is actually on screen. Capturing the hidden one
-        // would write out a stale bitmap, which is the one failure an export must not have.
-        bool fourthPaneIs3D = viewModel.IsVolumeView
-            && ReferenceEquals(target.Viewport, viewModel.Viewports[3]);
-
-        FrameworkElement? source = target.Viewport is null ? ViewportGrid
-            : fourthPaneIs3D ? VolumePane.Host
+        // The 3D pane is not a ViewportViewModel, so it is named by the target's own flag
+        // rather than by which view model it points at.
+        FrameworkElement? source = target.IsVolume ? VolumePane.Host
+            : target.Viewport is null ? ViewportGrid
             : PaneFor(target.Viewport)?.Host;
 
         if (source is null)
@@ -184,8 +180,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        string name = (fourthPaneIs3D ? "3D" : target.Name)
-            .Replace(" / ", "-").Replace(' ', '-').ToLowerInvariant();
+        string name = target.Name.Replace(' ', '-').ToLowerInvariant();
 
         Microsoft.Win32.SaveFileDialog dialog = new()
         {

@@ -202,15 +202,14 @@ public partial class ViewportControl : UserControl
                 break;
 
             // The slab settings leave the plane alone and change only what is projected
-            // through it, so the pane that draws a slab redraws and the other three have
-            // nothing to do.
+            // through it, so every pane redraws its pixels and none of them recomputes a
+            // plane. Crossing between zero and non-zero thickness also switches the
+            // Hounsfield readout and the measurement overlay on or off, so those are
+            // redrawn here rather than left showing what they showed at the last thickness.
             case nameof(MainViewModel.SlabMode):
             case nameof(MainViewModel.SlabThicknessMillimetres):
-                if (DataContext is ViewportViewModel { IsSlab: true })
-                {
-                    Render();
-                }
-
+                Render();
+                DrawMeasurements();
                 break;
 
             default:
@@ -307,7 +306,7 @@ public partial class ViewportControl : UserControl
             return;
         }
 
-        if (viewport.IsSlab)
+        if (shell.IsProjecting)
         {
             SlabRenderer.Render(
                 volume, plane, shell.SlabMode, shell.SlabThicknessMillimetres, shell.Lut, pixels);
@@ -498,8 +497,8 @@ public partial class ViewportControl : UserControl
 
         if (Shell is not MainViewModel shell ||
             shell.Volume is not Volume volume ||
+            shell.IsProjecting ||
             DataContext is not ViewportViewModel viewport ||
-            viewport.IsSlab ||
             viewport.Plane is not ReslicePlane plane)
         {
             return;
@@ -730,8 +729,8 @@ public partial class ViewportControl : UserControl
     /// </remarks>
     private string HounsfieldUnder(Point mousePosition)
     {
-        if (DataContext is not ViewportViewModel viewport || viewport.IsSlab ||
-            Shell?.Volume is not Volume volume ||
+        if (DataContext is not ViewportViewModel viewport || Shell is not MainViewModel shell ||
+            shell.IsProjecting || shell.Volume is not Volume volume ||
             ToPatient(mousePosition) is not Point3D patient)
         {
             return string.Empty;
@@ -794,7 +793,7 @@ public partial class ViewportControl : UserControl
 
         // Shift is tested before Control because Ctrl+Shift sets both flags, and the
         // thickness gesture is the more specific of the two.
-        if (viewport.IsSlab && Keyboard.Modifiers.HasFlag(ModifierKeys.Shift))
+        if (Keyboard.Modifiers.HasFlag(ModifierKeys.Shift))
         {
             shell.AdjustSlabThickness(notches);
         }
@@ -1040,8 +1039,8 @@ public partial class ViewportControl : UserControl
     {
         if (Shell is not MainViewModel shell ||
             shell.Tool is MeasurementTool.None or MeasurementTool.Move ||
+            shell.IsProjecting ||
             DataContext is not ViewportViewModel viewport ||
-            viewport.IsSlab ||
             ToPatient(mousePosition) is not Point3D patient)
         {
             return false;

@@ -44,12 +44,13 @@ public sealed partial class MainViewModel : ObservableObject
         this.builder = builder;
         this.prompt = prompt;
 
+        // Three planar panes. The fourth cell of the 2x2 is the 3D view, which is not a
+        // reslice plane and so is not one of these.
         Viewports =
         [
-            new ViewportViewModel(PlaneOrientation.Axial, isSlab: false),
-            new ViewportViewModel(PlaneOrientation.Coronal, isSlab: false),
-            new ViewportViewModel(PlaneOrientation.Sagittal, isSlab: false),
-            new ViewportViewModel(PlaneOrientation.Axial, isSlab: true),
+            new ViewportViewModel(PlaneOrientation.Axial),
+            new ViewportViewModel(PlaneOrientation.Coronal),
+            new ViewportViewModel(PlaneOrientation.Sagittal),
         ];
 
         // FR-409. Named targets rather than an implicit "whichever pane you last clicked":
@@ -61,10 +62,8 @@ public sealed partial class MainViewModel : ObservableObject
             new ExportTarget("Axial", Viewports[0]),
             new ExportTarget("Coronal", Viewports[1]),
             new ExportTarget("Sagittal", Viewports[2]),
-            new ExportTarget("Slab / 3D", Viewports[3]),
+            new ExportTarget("3D", null, IsVolume: true),
         ];
-
-        PaneMode = PaneModes[0];
 
 
         // The window's field initializer assigns the backing field directly, so it never
@@ -254,37 +253,28 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private SlabMode slabMode = SlabMode.Maximum;
 
-    /// <summary>FR-610. What the fourth pane shows, the 3D view included.</summary>
-    public IReadOnlyList<PaneMode> PaneModes { get; } =
+    /// <summary>FR-207. How a slab is collapsed, when there is one.</summary>
+    public IReadOnlyList<SlabProjection> SlabProjections { get; } =
     [
-        new PaneMode("MIP", SlabMode.Maximum),
-        new PaneMode("MinIP", SlabMode.Minimum),
-        new PaneMode("Average", SlabMode.Average),
-        new PaneMode("3D", null),
+        new SlabProjection("MIP", SlabMode.Maximum),
+        new SlabProjection("MinIP", SlabMode.Minimum),
+        new SlabProjection("Average", SlabMode.Average),
     ];
 
-    // Set in the constructor rather than initialised here, so PaneModes is the only place
-    // the list exists and the default is an element of it rather than a second copy.
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsVolumeView))]
-    [NotifyPropertyChangedFor(nameof(IsSlabView))]
-    private PaneMode paneMode = null!;
-
-    /// <summary>Whether the fourth pane is the 3D view (FR-601).</summary>
-    public bool IsVolumeView => PaneMode.IsVolume;
-
-    /// <summary>The complement, so both controls can bind without an inverting converter.</summary>
-    public bool IsSlabView => !PaneMode.IsVolume;
-
-    partial void OnPaneModeChanged(PaneMode value)
-    {
-        // The slab mode keeps its last projection while the 3D view is up, so switching
-        // back returns to what was on screen rather than to MIP.
-        if (value.Slab is SlabMode slab)
-        {
-            SlabMode = slab;
-        }
-    }
+    /// <summary>
+    /// Whether the three planar panes are currently showing a projection rather than a
+    /// plane (FR-207).
+    /// </summary>
+    /// <remarks>
+    /// Zero thickness is off, and off is where the viewer starts: the panes are then
+    /// exactly the single-plane reconstructions they have always been. It matters beyond
+    /// the picture, because a projected pixel has no one depth. The Hounsfield readout and
+    /// the measurement tools are both switched off while this is true, for the same reason
+    /// the old fourth pane never offered them - a number read off a projection is a
+    /// property of the thickest structure somewhere in the slab, not of the point under
+    /// the cursor, and there is no honest way to label it.
+    /// </remarks>
+    public bool IsProjecting => SlabThicknessMillimetres > 0;
 
     /// <summary>
     /// The 3D camera (FR-608). Null until a volume is loaded, which is what the 3D view's
@@ -296,10 +286,6 @@ public sealed partial class MainViewModel : ObservableObject
     /// <summary>The transfer function the 3D view classifies with (FR-604, FR-605).</summary>
     [ObservableProperty]
     private TransferFunction volumePreset = TransferFunctionPreset.Bone;
-
-    /// <summary>Whether the 3D view is gradient-shaded (FR-607).</summary>
-    [ObservableProperty]
-    private bool isVolumeShaded = true;
 
     // A new study gets a camera framing it, and nothing else would do: the camera is in
     // patient millimetres, so the previous study's target is a coordinate in someone
@@ -339,9 +325,10 @@ public sealed partial class MainViewModel : ObservableObject
 
     partial void OnSlabThicknessMillimetresChanged(double value) => RefreshViewports();
 
-    /// <summary>Slab thickness in millimetres, held to the FR-207 range of 1 to 100.</summary>
+    /// <summary>Slab thickness in millimetres: off, or the FR-207 range of 1 to 100.</summary>
     [ObservableProperty]
-    private double slabThicknessMillimetres = 20.0;
+    [NotifyPropertyChangedFor(nameof(IsProjecting))]
+    private double slabThicknessMillimetres;
 
     /// <summary>
     /// Every measurement drawn on this volume, in patient millimetres (FR-401 to FR-404).
@@ -505,14 +492,28 @@ public sealed partial class MainViewModel : ObservableObject
     }
 
     /// <summary>
-    /// FR-207: 1 to 100 mm. Geometric rather than linear, so the hundredfold range is
-    /// crossed in about twenty-five notches instead of a hundred, and the step stays
-    /// proportionate at both ends - one millimetre at a time is far too coarse near 1 mm
-    /// and far too fine near 100 mm.
+    /// FR-207: off, then 1 to 100 mm. Geometric rather than linear over the range, so the
+    /// hundredfold span is crossed in about twenty-five notches instead of a hundred, and
+    /// the step stays proportionate at both ends - one millimetre at a time is far too
+    /// coarse near 1 mm and far too fine near 100 mm.
     /// </summary>
-    public void AdjustSlabThickness(int notches) =>
-        SlabThicknessMillimetres = Math.Clamp(
-            SlabThicknessMillimetres * Math.Pow(1.2, notches), 1.0, 100.0);
+    /// <remarks>
+    /// Zero cannot be reached by multiplying, so it is a rung of its own below 1 mm rather
+    /// than the bottom of the geometric range. Scrolling down off 1 mm turns the slab off
+    /// and scrolling up off zero turns it on at 1 mm, which makes the gesture reversible -
+    /// the property nobody notices until it is missing.
+    /// </remarks>
+    public void AdjustSlabThickness(int notches)
+    {
+        if (SlabThicknessMillimetres < 1)
+        {
+            SlabThicknessMillimetres = notches > 0 ? 1.0 : 0.0;
+            return;
+        }
+
+        double next = SlabThicknessMillimetres * Math.Pow(1.2, notches);
+        SlabThicknessMillimetres = next < 1 ? 0.0 : Math.Min(next, 100.0);
+    }
 
     /// <summary>FR-203. Double-clicking the maximized pane restores the grid.</summary>
     public void ToggleMaximized(ViewportViewModel viewport) =>

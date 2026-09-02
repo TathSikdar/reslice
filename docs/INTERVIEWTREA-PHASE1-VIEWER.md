@@ -278,13 +278,13 @@ Requirements 105–107 matter more than they look. Handling malformed input grac
 
 | ID | Requirement |
 |---|---|
-| FR-201 | The system shall present four viewports in a 2×2 layout: axial, coronal, sagittal, and slab projection. |
+| FR-201 | The system shall present four viewports in a 2×2 layout: axial, coronal, sagittal, and - from Phase 2 - a volume rendering. **Revised.** Phase 1 shipped the fourth pane as a slab projection; Phase 2 made it the 3D view and moved the projection onto the other three, where a slab is a property of a plane rather than a pane of its own. See [ADR-006](decisions/ADR-006.md). |
 | FR-202 | Each viewport shall render a plane resampled from the reconstructed volume. |
 | FR-203 | The system shall support single-viewport maximized mode, toggled by double-click. |
 | FR-204 | Each viewport shall display an orientation overlay (A/P/L/R/S/I markers at the edges). |
 | FR-205 | Each viewport shall display slice position in mm, current window/level, and zoom factor. Patient identifiers shall not appear — see DI-1. |
 | FR-206 | The system shall render oblique planes by trilinear interpolation of the volume. |
-| FR-207 | The slab viewport shall support Maximum, Minimum, and Average intensity projection over a user-set slab thickness (1–100 mm). |
+| FR-207 | The axial, coronal, and sagittal viewports shall support Maximum, Minimum, and Average intensity projection over a user-set slab thickness (off, or 1–100 mm). **Revised** with FR-201: thickness starts at off, where each pane is the single plane it has always been. |
 | FR-208 | The system shall preserve aspect ratio correctly for anisotropic voxels (e.g. 0.7 × 0.7 × 3.0 mm). |
 
 FR-208 is the one people miss. If your voxels are 3 mm apart in Z and 0.7 mm in-plane, and you render coronal without accounting for it, the patient comes out squashed. Have a test for it.

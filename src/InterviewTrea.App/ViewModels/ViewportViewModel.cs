@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using InterviewTrea.Core.Geometry;
 using InterviewTrea.Core.Reslicing;
@@ -8,15 +8,14 @@ using InterviewTrea.Rendering.Reslicing;
 namespace InterviewTrea.App.ViewModels;
 
 /// <summary>
-/// One of the four panes (FR-201). Holds the plane it is currently showing and the text
-/// that goes round the edge of it; the control that owns it does the drawing.
+/// One of the three planar panes (FR-201). Holds the plane it is currently showing and
+/// the text that goes round the edge of it; the control that owns it does the drawing.
 /// </summary>
 public sealed partial class ViewportViewModel : ObservableObject
 {
-    public ViewportViewModel(PlaneOrientation orientation, bool isSlab)
+    public ViewportViewModel(PlaneOrientation orientation)
     {
         Orientation = orientation;
-        IsSlab = isSlab;
 
         SetMarkers(ReslicePlane.DisplayAxes(orientation));
 
@@ -44,9 +43,6 @@ public sealed partial class ViewportViewModel : ObservableObject
     public PlaneOrientation HorizontalLinePlane { get; }
 
     public PlaneOrientation Orientation { get; }
-
-    /// <summary>Whether this pane projects a slab (FR-207) rather than a single plane.</summary>
-    public bool IsSlab { get; }
 
     // FR-204. A marker names the anatomical direction you would travel by walking out
     // through that edge, so the left edge is the negative row direction. They are not
@@ -107,9 +103,12 @@ public sealed partial class ViewportViewModel : ObservableObject
     [ObservableProperty]
     private string positionLabel = string.Empty;
 
-    public string Title => IsSlab
-        ? Orientation + " " + ModeLabel
-        : Orientation.ToString();
+    // The projection is named in the title only while there is one. At zero thickness the
+    // pane is a plane and says so by saying nothing, which is what it did before the slab
+    // moved here from the fourth pane.
+    public string Title => ModeLabel.Length == 0
+        ? Orientation.ToString()
+        : Orientation + " " + ModeLabel;
 
     /// <summary>
     /// Recomputes the plane and its readouts for a new crosshair. Called for every pane on
@@ -126,7 +125,7 @@ public sealed partial class ViewportViewModel : ObservableObject
         Plane = ReslicePlane.Through(volume, axes, crosshair, pixelSizeMillimetres);
         SetMarkers(axes);
 
-        ModeLabel = IsSlab
+        ModeLabel = slabThicknessMillimetres > 0
             ? string.Create(CultureInfo.InvariantCulture, $"{ModeName(slabMode)} {slabThicknessMillimetres:0.#} mm")
             : string.Empty;
 

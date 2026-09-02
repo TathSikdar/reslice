@@ -102,55 +102,6 @@
         </Setter>
     </Style>
 
-    <!--
-        Retemplated for the same reason the button and the combo are: the stock check box
-        is a white square with a system-blue tick, which is two colours from outside the
-        palette sitting in the middle of a dark toolbar. The box is a bordered square that
-        fills with the accent when checked; the tick is a Path rather than a glyph so it
-        needs no font to be present.
-    -->
-    <Style x:Key="Style.CheckBox" TargetType="CheckBox">
-        <Setter Property="Foreground" Value="{StaticResource Brush.Text.Primary}" />
-        <Setter Property="FontFamily" Value="{StaticResource Font.Interface}" />
-        <Setter Property="FontSize" Value="{StaticResource Size.Text.Body}" />
-        <Setter Property="VerticalAlignment" Value="Center" />
-        <Setter Property="Template">
-            <Setter.Value>
-                <ControlTemplate TargetType="CheckBox">
-                    <StackPanel Orientation="Horizontal" Background="Transparent">
-                        <Border x:Name="Box"
-                                Width="13" Height="13"
-                                Background="{StaticResource Brush.Panel}"
-                                BorderBrush="{StaticResource Brush.Border}"
-                                BorderThickness="1"
-                                CornerRadius="{StaticResource CornerRadius.Control}"
-                                VerticalAlignment="Center">
-                            <Path x:Name="Tick"
-                                  Data="M 2,6 L 5,9 L 10,3"
-                                  Stroke="{StaticResource Brush.Chrome}"
-                                  StrokeThickness="1.6"
-                                  Visibility="Collapsed" />
-                        </Border>
-                        <ContentPresenter Margin="6,0,0,0" VerticalAlignment="Center" />
-                    </StackPanel>
-                    <ControlTemplate.Triggers>
-                        <Trigger Property="IsChecked" Value="True">
-                            <Setter TargetName="Box" Property="Background" Value="{StaticResource Brush.Accent}" />
-                            <Setter TargetName="Box" Property="BorderBrush" Value="{StaticResource Brush.Accent}" />
-                            <Setter TargetName="Tick" Property="Visibility" Value="Visible" />
-                        </Trigger>
-                        <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="Box" Property="BorderBrush" Value="{StaticResource Brush.Accent}" />
-                        </Trigger>
-                        <Trigger Property="IsEnabled" Value="False">
-                            <Setter Property="Opacity" Value="0.4" />
-                        </Trigger>
-                    </ControlTemplate.Triggers>
-                </ControlTemplate>
-            </Setter.Value>
-        </Setter>
-    </Style>
-
     <Style x:Key="Style.Label" TargetType="TextBlock">
         <Setter Property="Foreground" Value="{StaticResource Brush.Text.Secondary}" />
         <Setter Property="FontFamily" Value="{StaticResource Font.Interface}" />
