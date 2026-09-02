@@ -2,6 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:views="clr-namespace:InterviewTrea.App.Views"
         xmlns:windowing="clr-namespace:InterviewTrea.Rendering.Windowing;assembly=InterviewTrea.Rendering"
+        xmlns:core="clr-namespace:InterviewTrea.Core;assembly=InterviewTrea.Core"
         x:Class="InterviewTrea.App.MainWindow"
         Title="InterviewTrea"
         Height="900" Width="1300"
@@ -39,7 +40,7 @@
                 BorderBrush="{StaticResource Brush.Border}"
                 BorderThickness="0,0,0,1"
                 Padding="{StaticResource Thickness.Toolbar}">
-            <TextBlock Text="RESEARCH AND DEMONSTRATION USE ONLY — NOT A MEDICAL DEVICE. NOT FOR DIAGNOSTIC USE."
+            <TextBlock Text="{x:Static core:Disclaimer.Text}"
                        Foreground="{StaticResource Brush.Regulatory.Text}"
                        FontFamily="{StaticResource Font.Interface}"
                        FontSize="{StaticResource Size.Text.Regulatory}"
@@ -93,6 +94,13 @@
                         Margin="8,0,0,0"
                         Style="{StaticResource Style.Button}"
                         Click="OnExportCsv" />
+
+                <!-- FR-409. The pane last pressed in, with the RQ-1 disclaimer in the pixels. -->
+                <Button DockPanel.Dock="Left"
+                        Content="Export PNG"
+                        Margin="8,0,0,0"
+                        Style="{StaticResource Style.Button}"
+                        Click="OnExportPng" />
 
                 <!-- FR-207. Thickness is Shift+wheel over the slab pane, shown in its overlay. -->
                 <ComboBox DockPanel.Dock="Right"

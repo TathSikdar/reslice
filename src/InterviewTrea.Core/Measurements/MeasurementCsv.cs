@@ -30,8 +30,7 @@ public static class MeasurementCsv
     /// mailed to someone who never saw the application. RQ-1 asks only for the banner and
     /// FR-409 only for the PNG, so this is a deliberate addition rather than a requirement.
     /// </summary>
-    public const string Disclaimer =
-        "# RESEARCH AND DEMONSTRATION USE ONLY - NOT A MEDICAL DEVICE. NOT FOR DIAGNOSTIC USE.";
+    public static readonly string Disclaimer = "# " + InterviewTrea.Core.Disclaimer.Ascii;
 
     public const string Header =
         "id,kind,start_x_mm,start_y_mm,start_z_mm,end_x_mm,end_y_mm,end_z_mm," +

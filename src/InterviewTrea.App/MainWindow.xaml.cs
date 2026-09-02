@@ -6,6 +6,8 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using InterviewTrea.App.ViewModels;
 using InterviewTrea.App.Views;
 using InterviewTrea.Core.Measurements;
@@ -140,6 +142,76 @@ public partial class MainWindow : Window
             // screen - so silence here would look like success.
             MessageBox.Show(this, ex.Message, "Export failed", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
+    }
+
+    /// <summary>
+    /// FR-409. Exports the active pane exactly as it stands - crosshair, measurements and
+    /// all - with the RQ-1 disclaimer drawn into the pixels.
+    /// </summary>
+    /// <remarks>
+    /// The pane is found by identity against its own DataContext rather than by index, for
+    /// the same reason <see cref="ApplyLayout"/> does it: the panes are laid out by grid
+    /// position and the array order is not a fact anything else should depend on.
+    /// </remarks>
+    private void OnExportPng(object sender, RoutedEventArgs e)
+    {
+        if (viewModel.Volume is null || PaneFor(viewModel.Active) is not ViewportControl pane)
+        {
+            return;
+        }
+
+        string name = viewModel.Active is ViewportViewModel active
+            ? active.Title.Replace(' ', '-').ToLowerInvariant()
+            : "viewport";
+
+        Microsoft.Win32.SaveFileDialog dialog = new()
+        {
+            Title = "Export viewport",
+            FileName = name + ".png",
+            DefaultExt = ".png",
+            Filter = "PNG image|*.png",
+        };
+
+        if (dialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        try
+        {
+            BitmapSource image = ViewportCapture.Render(
+                pane.Host,
+                new Typeface(
+                    (FontFamily)FindResource("Font.Interface"),
+                    FontStyles.Normal,
+                    FontWeights.SemiBold,
+                    FontStretches.Normal),
+                (Brush)FindResource("Brush.Regulatory.Background"),
+                (Brush)FindResource("Brush.Regulatory.Text"));
+
+            PngBitmapEncoder encoder = new();
+            encoder.Frames.Add(BitmapFrame.Create(image));
+
+            using FileStream file = File.Create(dialog.FileName);
+            encoder.Save(file);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            MessageBox.Show(this, ex.Message, "Export failed", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    private ViewportControl? PaneFor(ViewportViewModel? viewport)
+    {
+        foreach (ViewportControl pane in panes)
+        {
+            if (viewport is not null && ReferenceEquals(pane.DataContext, viewport))
+            {
+                return pane;
+            }
+        }
+
+        return null;
     }
 
     private async void OnOpenFolder(object sender, RoutedEventArgs e)

@@ -45,6 +45,8 @@ public sealed partial class MainViewModel : ObservableObject
             new ViewportViewModel(PlaneOrientation.Axial, isSlab: true),
         ];
 
+        Active = Viewports[0];
+
         // The window's field initializer assigns the backing field directly, so it never
         // passes through OnWindowChanged and the dropdown starts out disagreeing with the
         // window actually on screen. Naming it once here is what makes that hook the only
@@ -305,6 +307,17 @@ public sealed partial class MainViewModel : ObservableObject
             Hovered = null;
         }
     }
+
+    /// <summary>
+    /// FR-409. The pane the last press landed in, which is the one an export takes.
+    /// </summary>
+    /// <remarks>
+    /// Last pressed rather than under the pointer, so that moving the mouse up to the
+    /// toolbar to click Export does not change what is exported on the way. It starts on
+    /// the axial pane so the button is never ambiguous, not even before the first click.
+    /// </remarks>
+    [ObservableProperty]
+    private ViewportViewModel? active;
 
     /// <summary>The pane filling the window on its own, or null for the 2x2 grid (FR-203).</summary>
     [ObservableProperty]
