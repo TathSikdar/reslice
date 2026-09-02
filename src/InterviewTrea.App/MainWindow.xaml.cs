@@ -145,24 +145,33 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// FR-409. Exports the active pane exactly as it stands - crosshair, measurements and
-    /// all - with the RQ-1 disclaimer drawn into the pixels.
+    /// FR-409. Exports what the dropdown names, exactly as it stands on screen - crosshair,
+    /// measurements and all - with the RQ-1 disclaimer drawn into the pixels.
     /// </summary>
     /// <remarks>
-    /// The pane is found by identity against its own DataContext rather than by index, for
-    /// the same reason <see cref="ApplyLayout"/> does it: the panes are laid out by grid
-    /// position and the array order is not a fact anything else should depend on.
+    /// A single pane is found by identity against its own DataContext rather than by index,
+    /// for the same reason <see cref="ApplyLayout"/> does it: the panes are laid out by grid
+    /// position and the array order is not a fact anything else should depend on. The whole
+    /// grid is captured as one element, gutters included, so the file is the layout someone
+    /// was looking at rather than four pictures they would have to reassemble.
     /// </remarks>
     private void OnExportPng(object sender, RoutedEventArgs e)
     {
-        if (viewModel.Volume is null || PaneFor(viewModel.Active) is not ViewportControl pane)
+        if (viewModel.Volume is null || viewModel.SelectedExportTarget is not ExportTarget target)
         {
             return;
         }
 
-        string name = viewModel.Active is ViewportViewModel active
-            ? active.Title.Replace(' ', '-').ToLowerInvariant()
-            : "viewport";
+        FrameworkElement? source = target.Viewport is null
+            ? ViewportGrid
+            : PaneFor(target.Viewport)?.Host;
+
+        if (source is null)
+        {
+            return;
+        }
+
+        string name = target.Name.Replace(' ', '-').ToLowerInvariant();
 
         Microsoft.Win32.SaveFileDialog dialog = new()
         {
@@ -180,7 +189,7 @@ public partial class MainWindow : Window
         try
         {
             BitmapSource image = ViewportCapture.Render(
-                pane.Host,
+                source,
                 new Typeface(
                     (FontFamily)FindResource("Font.Interface"),
                     FontStyles.Normal,

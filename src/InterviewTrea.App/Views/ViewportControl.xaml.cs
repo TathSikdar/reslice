@@ -822,14 +822,6 @@ public partial class ViewportControl : UserControl
         Host.Focus();
         lastMousePosition = e.GetPosition(Host);
 
-        // FR-409. Whichever button was pressed: pressing in a pane is what makes it the one
-        // the toolbar acts on, and a right-drag to window it is as much a statement of which
-        // pane you are working in as a left click.
-        if (Shell is MainViewModel active && DataContext is ViewportViewModel pressed)
-        {
-            active.Active = pressed;
-        }
-
         if (e.ChangedButton == MouseButton.Left && e.ClickCount == 2)
         {
             if (Shell is MainViewModel shell && DataContext is ViewportViewModel viewport)

@@ -51,7 +51,19 @@ public sealed partial class MainViewModel : ObservableObject
             new ViewportViewModel(PlaneOrientation.Axial, isSlab: true),
         ];
 
-        Active = Viewports[0];
+        // FR-409. Named targets rather than an implicit "whichever pane you last clicked":
+        // an export that cannot be seen in advance is one the user has to run to find out
+        // what it does.
+        ExportTargets =
+        [
+            new ExportTarget("All four panes", null),
+            new ExportTarget("Axial", Viewports[0]),
+            new ExportTarget("Coronal", Viewports[1]),
+            new ExportTarget("Sagittal", Viewports[2]),
+            new ExportTarget("Slab", Viewports[3]),
+        ];
+
+        SelectedExportTarget = ExportTargets[0];
 
         // The window's field initializer assigns the backing field directly, so it never
         // passes through OnWindowChanged and the dropdown starts out disagreeing with the
@@ -323,16 +335,11 @@ public sealed partial class MainViewModel : ObservableObject
         }
     }
 
-    /// <summary>
-    /// FR-409. The pane the last press landed in, which is the one an export takes.
-    /// </summary>
-    /// <remarks>
-    /// Last pressed rather than under the pointer, so that moving the mouse up to the
-    /// toolbar to click Export does not change what is exported on the way. It starts on
-    /// the axial pane so the button is never ambiguous, not even before the first click.
-    /// </remarks>
+    /// <summary>FR-409. What the PNG export can capture.</summary>
+    public IReadOnlyList<ExportTarget> ExportTargets { get; }
+
     [ObservableProperty]
-    private ViewportViewModel? active;
+    private ExportTarget? selectedExportTarget;
 
     /// <summary>The pane filling the window on its own, or null for the 2x2 grid (FR-203).</summary>
     [ObservableProperty]

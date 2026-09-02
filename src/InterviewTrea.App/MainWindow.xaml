@@ -95,7 +95,18 @@
                         Style="{StaticResource Style.Button}"
                         Click="OnExportCsv" />
 
-                <!-- FR-409. The pane last pressed in, with the RQ-1 disclaimer in the pixels. -->
+                <!--
+                    FR-409. What the export will capture, chosen before it runs, with the
+                    RQ-1 disclaimer drawn into the pixels of whatever it takes.
+                -->
+                <ComboBox DockPanel.Dock="Left"
+                          Width="120"
+                          Margin="8,0,0,0"
+                          Style="{StaticResource Style.ComboBox}"
+                          ItemsSource="{Binding ExportTargets}"
+                          DisplayMemberPath="Name"
+                          SelectedItem="{Binding SelectedExportTarget}" />
+
                 <Button DockPanel.Dock="Left"
                         Content="Export PNG"
                         Margin="8,0,0,0"
