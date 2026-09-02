@@ -50,6 +50,17 @@ public sealed partial class MainViewModel : ObservableObject
         // window actually on screen. Naming it once here is what makes that hook the only
         // rule afterwards, rather than a second copy of the default living in the field.
         SelectedPreset = WindowPreset.All.FirstOrDefault(candidate => candidate.Window == Window);
+
+        // The pointer can be over a measurement when the list changes under it - Clear, a
+        // reset, or a new series - and a Hovered left pointing at something no longer in
+        // the list aims the Delete key at a measurement nobody can see.
+        Measurements.CollectionChanged += (_, _) =>
+        {
+            if (Hovered is Measurement stale && !Measurements.Contains(stale))
+            {
+                Hovered = null;
+            }
+        };
     }
 
     /// <summary>The 2x2 layout, in reading order (FR-201).</summary>
@@ -136,6 +147,39 @@ public sealed partial class MainViewModel : ObservableObject
         RefreshViewports();
         AxesVersion++;
     }
+
+    /// <summary>
+    /// FR-310. Back to the opening view: the three anatomical planes, the middle of the
+    /// volume, and nothing drawn on it.
+    /// </summary>
+    /// <remarks>
+    /// Zoom and pan are deliberately left alone. They are per-pane state living in the
+    /// view's own matrix, and a magnification set up on one pane is a different kind of
+    /// thing from the shared geometry this button exists to undo.
+    /// </remarks>
+    public void Reset()
+    {
+        if (Volume is not Volume loaded)
+        {
+            return;
+        }
+
+        ResetAxes();
+        Measurements.Clear();
+        SetCrosshair(Centre(loaded));
+
+        // After the crosshair, because SetCrosshair is what re-cuts the panes with the
+        // restored axes. This is what tells a pane whose own plane did not move to redraw
+        // the arms of the two that did.
+        AxesVersion++;
+    }
+
+    /// <summary>
+    /// The middle voxel, in patient millimetres. Opening at a corner shows the edge of the
+    /// scan range, which on a chest study is usually air.
+    /// </summary>
+    private static Point3D Centre(Volume volume) => volume.VoxelToPatient.Transform(
+        (volume.DimX - 1) / 2.0, (volume.DimY - 1) / 2.0, (volume.DimZ - 1) / 2.0);
 
     /// <summary>Returns all three frames to the standard anatomical planes.</summary>
     private void ResetAxes()
@@ -445,10 +489,7 @@ public sealed partial class MainViewModel : ObservableObject
             // of the five presets is what is on screen.
             Window = WindowLevel.InitialFor(loaded.Metadata);
 
-            // Centre of the volume. Opening at a corner shows the edge of the scan range,
-            // which on a chest study is usually air.
-            SetCrosshair(loaded.VoxelToPatient.Transform(
-                (loaded.DimX - 1) / 2.0, (loaded.DimY - 1) / 2.0, (loaded.DimZ - 1) / 2.0));
+            SetCrosshair(Centre(loaded));
 
             Status = $"{loaded.DimZ} slices, {loaded.DimX}x{loaded.DimY}, "
                 + $"HU {result.MinimumHounsfield}..{result.MaximumHounsfield}";

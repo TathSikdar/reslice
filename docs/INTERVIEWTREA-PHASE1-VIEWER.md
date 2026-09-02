@@ -1,4 +1,4 @@
-# InterviewTrea — Multiplanar CT Visualization Workstation
+﻿# InterviewTrea — Multiplanar CT Visualization Workstation
 
 **Phase 1 Specification: Core Viewer Platform**
 
@@ -301,6 +301,7 @@ FR-208 is the one people miss. If your voxels are 3 mm apart in Z and 0.7 mm in-
 | FR-306 | The system shall apply the series' own WindowCenter/WindowWidth (0028,1050/1051) as the initial preset when present. |
 | FR-307 | The system shall support oblique reslicing: dragging a crosshair arm shall rotate the reslice plane, updating dependent viewports live. |
 | FR-308 | All viewport interactions shall maintain interactive frame rates per NFR-201. |
+| FR-310 | The system shall provide a reset returning the reslice frames to the anatomical planes and the crosshair to the centre of the volume, and clearing all measurements. |
 
 ### FR-400 — Measurement
 

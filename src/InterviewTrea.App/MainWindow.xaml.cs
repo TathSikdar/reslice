@@ -97,6 +97,8 @@ public partial class MainWindow : Window
     private void OnClearMeasurements(object sender, RoutedEventArgs e) =>
         viewModel.Measurements.Clear();
 
+    private void OnReset(object sender, RoutedEventArgs e) => viewModel.Reset();
+
     /// <summary>
     /// FR-408. The document is built in Core and only the file is written here, so the
     /// format is covered by unit tests and this method has nothing in it but a path.

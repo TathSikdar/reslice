@@ -57,6 +57,13 @@
                         Style="{StaticResource Style.Button}"
                         Click="OnOpenFolder" />
 
+                <!-- FR-310. Anatomical planes, middle of the volume, nothing drawn on it. -->
+                <Button DockPanel.Dock="Left"
+                        Content="Reset"
+                        Margin="8,0,0,0"
+                        Style="{StaticResource Style.Button}"
+                        Click="OnReset" />
+
                 <!--
                     FR-401 to FR-404. A tool takes the left button over from navigation while
                     it is selected, so None is the resting state and the entry the dropdown
@@ -105,7 +112,8 @@
                           Style="{StaticResource Style.ComboBox}"
                           ItemsSource="{x:Static windowing:WindowPreset.All}"
                           ItemTemplate="{StaticResource Template.WindowPreset}"
-                          SelectedItem="{Binding SelectedPreset}" />
+                          SelectedItem="{Binding SelectedPreset}"
+                          Tag="{Binding WindowLabel}" />
 
                 <TextBlock DockPanel.Dock="Right"
                            Text="Window:"
