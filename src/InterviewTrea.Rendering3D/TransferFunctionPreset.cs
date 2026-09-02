@@ -32,21 +32,53 @@ public static class TransferFunctionPreset
         new TransferFunctionPoint(3071, new Rgb(255, 255, 255), 1.0),
     });
 
-    /// <summary>Iodinated vessels in red, with bone kept pale behind them for orientation.</summary>
+    /// <summary>
+    /// Iodinated vessels in red, with bone left pale so the two are told apart by colour
+    /// rather than only by shape.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The red is confined to 200-500 HU, which is where contrast-filled blood sits, and
+    /// gives way to bone white by 700. An earlier version ran red to 900 at high opacity and
+    /// painted cancellous bone with it, which on a non-contrast study produced a red
+    /// skeleton and read as a vascular finding.
+    /// </para>
+    /// <para>
+    /// It still tints the rising edge of every bone, and that is not a bug to tune away.
+    /// A transfer function classifies by density: the outside of a rib passes through 300 HU
+    /// on its way up, and nothing here can tell that from a vessel at 300 HU, because
+    /// telling them apart is segmentation and Phase 2 section 1.4 rules it out on purpose.
+    /// On a non-contrast study - which is most public data - Angio is showing bone edges,
+    /// and the honest thing is to say so rather than to hide it behind a threshold.
+    /// </para>
+    /// </remarks>
     public static TransferFunction Angio { get; } = new(new[]
     {
         new TransferFunctionPoint(-1024, Rgb.Black, 0),
-        new TransferFunctionPoint(120, new Rgb(140, 30, 30), 0),
-        new TransferFunctionPoint(220, new Rgb(200, 60, 50), 0.35),
-        new TransferFunctionPoint(450, new Rgb(240, 130, 110), 0.75),
-        new TransferFunctionPoint(900, new Rgb(230, 225, 215), 0.45),
-        new TransferFunctionPoint(3071, new Rgb(245, 245, 240), 0.60),
+        new TransferFunctionPoint(120, new Rgb(150, 30, 30), 0),
+        new TransferFunctionPoint(200, new Rgb(200, 55, 45), 0.12),
+        new TransferFunctionPoint(400, new Rgb(245, 120, 100), 0.35),
+        new TransferFunctionPoint(700, new Rgb(235, 225, 210), 0.55),
+        new TransferFunctionPoint(3071, new Rgb(250, 250, 245), 0.75),
     });
 
     /// <summary>
-    /// Parenchyma and airways. The opacities are an order of magnitude below the others:
-    /// lung is mostly air, so anything more turns the whole chest into a solid block.
+    /// Parenchyma and airways, and deliberately nothing else.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A window of about -950 to -500 HU, transparent on both sides of it. Everything
+    /// denser than -500 - the chest wall, the mediastinum, the ribs - is left invisible, so
+    /// the lungs are seen through the body rather than behind it. That is the point of the
+    /// preset: it is a view of the air.
+    /// </para>
+    /// <para>
+    /// The opacities are an order of magnitude below the other presets because a lung is
+    /// mostly air and a ray crosses 200 mm of it. An earlier version left soft tissue at
+    /// 0.05, which is nothing per millimetre and a solid grey block over the width of a
+    /// chest; the lungs were behind it and invisible.
+    /// </para>
+    /// </remarks>
     public static TransferFunction Lung { get; } = new(new[]
     {
         new TransferFunctionPoint(-1024, Rgb.Black, 0),
@@ -55,11 +87,11 @@ public static class TransferFunctionPreset
         // outside the patient. At even 0.003 per millimetre that accumulates to a fog
         // around the whole chest, so the ramp starts above air rather than at it.
         new TransferFunctionPoint(-980, Rgb.Black, 0),
-        new TransferFunctionPoint(-940, new Rgb(60, 80, 110), 0.008),
-        new TransferFunctionPoint(-700, new Rgb(120, 150, 190), 0.04),
-        new TransferFunctionPoint(-450, new Rgb(200, 200, 205), 0.10),
-        new TransferFunctionPoint(200, new Rgb(240, 235, 225), 0.05),
-        new TransferFunctionPoint(3071, new Rgb(255, 255, 255), 0.05),
+        new TransferFunctionPoint(-940, new Rgb(70, 95, 130), 0.020),
+        new TransferFunctionPoint(-750, new Rgb(140, 170, 205), 0.060),
+        new TransferFunctionPoint(-600, new Rgb(205, 220, 240), 0.020),
+        new TransferFunctionPoint(-500, Rgb.Black, 0),
+        new TransferFunctionPoint(3071, Rgb.Black, 0),
     });
 
     /// <summary>The outer surface: the air-to-skin step, opaque, with nothing behind it.</summary>

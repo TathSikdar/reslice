@@ -1,4 +1,5 @@
-using System;
+﻿using System;
+using System.Threading;
 using System.Threading.Tasks;
 using InterviewTrea.Core.Geometry;
 using InterviewTrea.Core.Volumes;
@@ -31,7 +32,8 @@ public static class VolumeRaycaster
         RaycastSettings settings,
         int width,
         int height,
-        byte[] destination)
+        byte[] destination,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(volume);
         ArgumentNullException.ThrowIfNull(camera);
@@ -66,7 +68,12 @@ public static class VolumeRaycaster
 
         // Rows, not pixels: a row is enough work to cover the cost of scheduling it, and
         // each row writes a disjoint run of the buffer, so nothing is shared.
-        Parallel.For(0, height, row =>
+        // A full-quality frame is hundreds of milliseconds and the camera can move during
+        // it. Cancelling lets the caller start the next one straight away rather than wait
+        // for a frame it has already decided not to show.
+        ParallelOptions options = new() { CancellationToken = cancellationToken };
+
+        Parallel.For(0, height, options, row =>
         {
             int offset = row * width * BytesPerPixel;
 

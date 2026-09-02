@@ -40,6 +40,33 @@ public sealed class GradientShaderTests
     }
 
     [Fact]
+    public void TheDifferenceIsTakenOverTheSamePhysicalDistanceOnEveryAxis()
+    {
+        // 0.7 x 0.7 x 3.0 mm voxels, so the coarsest axis is 3.0 mm and that is the offset
+        // used on all three. A 6 mm cube has its face at x = 3 mm; sample 2 mm outside it,
+        // at x = 5. An isotropic 3 mm reach still touches the cube at x = 2 and reports an
+        // edge. One index step per axis reaches 0.7 mm in x, sees air on both sides, and
+        // reports nothing - which is what smooths the normal four times harder through the
+        // slice stack than across it and bands a real chest study horizontally.
+        Volume volume = Phantoms.Cube(
+            edgeMm: 6, insideHounsfield: 1000, outsideHounsfield: -1000,
+            dimX: 41, dimY: 41, dimZ: 21, spacing: Phantoms.ChestSpacing);
+
+        Point3D outside = new(5, 0, 0);
+        Point3D asVoxels = volume.PatientToVoxel.Transform(outside);
+
+        GradientShader.Gradient(volume, asVoxels.X, asVoxels.Y, asVoxels.Z).Length
+            .Should().BeGreaterThan(0);
+
+        // The converse, so the test cannot pass on a renderer that reaches everywhere: a
+        // point 5 mm outside is beyond even the isotropic reach and must read flat.
+        Point3D wellClear = volume.PatientToVoxel.Transform(new Point3D(8.5, 0, 0));
+
+        GradientShader.Gradient(volume, wellClear.X, wellClear.Y, wellClear.Z).Length
+            .Should().BeApproximately(0, Tolerance);
+    }
+
+    [Fact]
     public void AUniformVolumeHasNoGradientAndIsNotShadedByOne()
     {
         Volume volume = Phantoms.Uniform(40);
